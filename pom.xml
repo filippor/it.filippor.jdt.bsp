@@ -12,14 +12,34 @@
   <modules>
     <module>org.eclipse.jdt.bsp.core</module>
     <module>org.eclipse.jdt.bsp.client</module>
+    <module>org.eclipse.jdt.bsp.feature</module>
+    <module>org.eclipse.jdt.bsp.repository</module>
   </modules>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <tycho.version>4.0.10</tycho.version>
+    <tycho.version>4.0.12</tycho.version>
+    <maven.dependency.plugin.version>3.8.1</maven.dependency.plugin.version>
+    <eclipse-p2-repo.url>https://download.eclipse.org/releases/2026-09</eclipse-p2-repo.url>
   </properties>
 
+  <pluginRepositories>
+    <pluginRepository>
+      <id>eclipse-hosted</id>
+      <url>https://repo.eclipse.org/content/repositories/eclipse/</url>
+    </pluginRepository>
+  </pluginRepositories>
+
   <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>${maven.dependency.plugin.version}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
     <plugins>
       <plugin>
         <groupId>org.eclipse.tycho</groupId>
@@ -27,6 +47,39 @@
         <version>${tycho.version}</version>
         <extensions>true</extensions>
       </plugin>
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId>
+        <artifactId>target-platform-configuration</artifactId>
+        <version>${tycho.version}</version>
+        <configuration>
+          <dependency-resolution>
+            <pomDependencies>consider</pomDependencies>
+          </dependency-resolution>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>build-individual-bundles</id>
+      <repositories>
+        <repository>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+          </snapshots>
+          <id>eclipse-hosted</id>
+          <url>https://repo.eclipse.org/content/repositories/eclipse/</url>
+        </repository>
+        <repository>
+          <id>eclipse</id>
+          <url>${eclipse-p2-repo.url}</url>
+          <layout>p2</layout>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
 </project>
