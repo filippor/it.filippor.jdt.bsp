@@ -34,6 +34,8 @@ import org.osgi.framework.FrameworkUtil;
 
 import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
 import it.filippor.jdt.bsp.core.BspRootProjectNature;
+import it.filippor.jdt.bsp.core.BspModuleProjectNature;
+import it.filippor.jdt.bsp.core.BspSourceSetProjectNature;
 
 public class BspWorkspaceProjectSynchronizer {
 
@@ -79,6 +81,14 @@ public class BspWorkspaceProjectSynchronizer {
 			String moduleProjectName = toModuleProjectName(rootProjectName, moduleName);
 			IProject moduleProject = root.getProject(moduleProjectName);
 			ensureProject(moduleProject, Path.fromOSString(moduleLocation.toString()), false, monitor);
+			try {
+				ensureBspModuleNature(moduleProject, monitor);
+			} catch (CoreException e) {
+				log(IStatus.WARNING,
+						"Failed to apply BSP module nature for project '" + moduleProject.getName()
+								+ "'. Synchronization will continue without the BSP module nature.",
+						e);
+			}
 
 			List<IProject> sourceSetProjects = new ArrayList<>();
 			List<SourceSetBinding> moduleBindings = new ArrayList<>();
@@ -89,6 +99,14 @@ public class BspWorkspaceProjectSynchronizer {
 				java.nio.file.Path sourceSetLocation = moduleLocation.resolve(".bsp").resolve("sourcesets")
 						.resolve(sanitize(sourceSetName));
 				ensureProject(sourceSetProject, Path.fromOSString(sourceSetLocation.toString()), false, monitor);
+				try {
+					ensureBspSourceSetNature(sourceSetProject, monitor);
+				} catch (CoreException e) {
+					log(IStatus.WARNING,
+							"Failed to apply BSP source-set nature for project '" + sourceSetProject.getName()
+									+ "'. Synchronization will continue without the BSP source-set nature.",
+							e);
+				}
 				ensureJavaNature(sourceSetProject, monitor);
 				IJavaProject javaProject = JavaCore.create(sourceSetProject);
 				this.classpathMapper.apply(javaProject, sourceSet, monitor);
@@ -382,6 +400,46 @@ public class BspWorkspaceProjectSynchronizer {
 		} else {
 		    throw new CoreException(new Status(IStatus.ERROR, CORE_PLUGIN_ID,
 		            "Cannot apply BSP root nature to project '" + project.getName() + "': " + status.getMessage()));
+		}
+	}
+
+	private static void ensureBspModuleNature(IProject project, IProgressMonitor monitor) throws CoreException {
+		IProjectDescription description = project.getDescription();
+		String[] natures = description.getNatureIds();
+		for (String nature : natures) {
+			if (BspModuleProjectNature.NATURE_ID.equals(nature)) {
+				return;
+			}
+		}
+		String[] newNatures = Arrays.copyOf(natures, natures.length + 1);
+		newNatures[natures.length] = BspModuleProjectNature.NATURE_ID;
+		IStatus status = ResourcesPlugin.getWorkspace().validateNatureSet(newNatures);
+		if (status.getCode() == IStatus.OK) {
+			description.setNatureIds(newNatures);
+			project.setDescription(description, monitor);
+		} else {
+			throw new CoreException(new Status(IStatus.ERROR, CORE_PLUGIN_ID,
+					"Cannot apply BSP module nature to project '" + project.getName() + "': " + status.getMessage()));
+		}
+	}
+
+	private static void ensureBspSourceSetNature(IProject project, IProgressMonitor monitor) throws CoreException {
+		IProjectDescription description = project.getDescription();
+		String[] natures = description.getNatureIds();
+		for (String nature : natures) {
+			if (BspSourceSetProjectNature.NATURE_ID.equals(nature)) {
+				return;
+			}
+		}
+		String[] newNatures = Arrays.copyOf(natures, natures.length + 1);
+		newNatures[natures.length] = BspSourceSetProjectNature.NATURE_ID;
+		IStatus status = ResourcesPlugin.getWorkspace().validateNatureSet(newNatures);
+		if (status.getCode() == IStatus.OK) {
+			description.setNatureIds(newNatures);
+			project.setDescription(description, monitor);
+		} else {
+			throw new CoreException(new Status(IStatus.ERROR, CORE_PLUGIN_ID,
+					"Cannot apply BSP source-set nature to project '" + project.getName() + "': " + status.getMessage()));
 		}
 	}
 

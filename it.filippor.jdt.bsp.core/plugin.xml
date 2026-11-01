@@ -13,4 +13,26 @@
       </runtime>
    </extension>
 
+   <extension
+         id="bspModuleNature"
+         name="JDT BSP Module Project"
+         point="org.eclipse.core.resources.natures">
+      <runtime>
+         <run
+               class="it.filippor.jdt.bsp.core.BspModuleProjectNature">
+         </run>
+      </runtime>
+   </extension>
+
+   <extension
+         id="bspSourceSetNature"
+         name="JDT BSP Source Set Project"
+         point="org.eclipse.core.resources.natures">
+      <runtime>
+         <run
+               class="it.filippor.jdt.bsp.core.BspSourceSetProjectNature">
+         </run>
+      </runtime>
+   </extension>
+
 </plugin>
