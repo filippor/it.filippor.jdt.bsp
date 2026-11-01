@@ -132,7 +132,7 @@
             class="it.filippor.jdt.bsp.ui.ui.BspProjectLabelDecorator"
             id="it.filippor.jdt.bsp.ui.decorators.projectLabel"
             label="BSP Project Folder Decorator"
-            lightweight="true"
+            lightweight="false"
             state="true">
       </decorator>
    </extension>

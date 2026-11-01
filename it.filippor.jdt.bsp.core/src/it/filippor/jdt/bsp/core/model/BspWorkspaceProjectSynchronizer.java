@@ -17,6 +17,7 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspaceRoot;
+import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -31,6 +32,7 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
+import org.osgi.service.prefs.Preferences;
 
 import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
 import it.filippor.jdt.bsp.core.BspRootProjectNature;
@@ -81,6 +83,7 @@ public class BspWorkspaceProjectSynchronizer {
 			String moduleProjectName = toModuleProjectName(rootProjectName, moduleName);
 			IProject moduleProject = root.getProject(moduleProjectName);
 			ensureProject(moduleProject, Path.fromOSString(moduleLocation.toString()), false, monitor);
+			setProjectProperty(moduleProject, BspRootProjectNature.PROPERTY_MODULE_NAME, moduleName);
 			try {
 				ensureBspModuleNature(moduleProject, monitor);
 			} catch (CoreException e) {
@@ -99,6 +102,7 @@ public class BspWorkspaceProjectSynchronizer {
 				java.nio.file.Path sourceSetLocation = moduleLocation.resolve(".bsp").resolve("sourcesets")
 						.resolve(sanitize(sourceSetName));
 				ensureProject(sourceSetProject, Path.fromOSString(sourceSetLocation.toString()), false, monitor);
+				setProjectProperty(sourceSetProject, BspRootProjectNature.PROPERTY_SOURCE_SET_NAME, sourceSetName);
 				try {
 					ensureBspSourceSetNature(sourceSetProject, monitor);
 				} catch (CoreException e) {
@@ -456,6 +460,26 @@ public class BspWorkspaceProjectSynchronizer {
 			BspProjectSettingsStore.write(project, commandLine);
 		} catch (Exception e) {
 			// Metadata persistence is best-effort; startup can still proceed via persistent properties.
+		}
+	}
+
+	private static void setProjectProperty(IProject project, QualifiedName key, String value) {
+		try {
+			project.setPersistentProperty(key, value == null ? "" : value);
+		} catch (CoreException e) {
+			// Best effort metadata.
+		}
+		// Mirror into .settings so values are visible in project-scoped preference files.
+		try {
+			Preferences node = new ProjectScope(project).getNode(BspRootProjectNature.SETTINGS_NODE);
+			if (BspRootProjectNature.PROPERTY_MODULE_NAME.equals(key)) {
+				node.put(BspRootProjectNature.KEY_MODULE_NAME, value == null ? "" : value);
+			} else if (BspRootProjectNature.PROPERTY_SOURCE_SET_NAME.equals(key)) {
+				node.put(BspRootProjectNature.KEY_SOURCE_SET_NAME, value == null ? "" : value);
+			}
+			node.flush();
+		} catch (Exception e) {
+			// Best effort metadata.
 		}
 	}
 

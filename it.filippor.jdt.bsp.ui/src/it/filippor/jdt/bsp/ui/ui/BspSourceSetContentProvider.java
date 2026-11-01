@@ -4,14 +4,17 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.ui.IMemento;
 import org.eclipse.ui.navigator.ICommonContentExtensionSite;
 import org.eclipse.ui.navigator.ICommonContentProvider;
+import org.osgi.service.prefs.Preferences;
 
 import it.filippor.jdt.bsp.core.BspModuleProjectNature;
+import it.filippor.jdt.bsp.core.BspRootProjectNature;
 import it.filippor.jdt.bsp.core.BspSourceSetProjectNature;
 
 public class BspSourceSetContentProvider implements ICommonContentProvider {
@@ -136,6 +139,18 @@ public class BspSourceSetContentProvider implements ICommonContentProvider {
 	}
 
 	private static String sourceSetLabel(IProject sourceSetProject) {
+		try {
+			Preferences node = new ProjectScope(sourceSetProject).getNode(BspRootProjectNature.SETTINGS_NODE);
+			String persisted = node.get(BspRootProjectNature.KEY_SOURCE_SET_NAME, null);
+			if ((persisted == null || persisted.isBlank())) {
+				persisted = sourceSetProject.getPersistentProperty(BspRootProjectNature.PROPERTY_SOURCE_SET_NAME);
+			}
+			if (persisted != null && !persisted.isBlank()) {
+				return persisted;
+			}
+		} catch (CoreException e) {
+			// fallback below
+		}
 		if (sourceSetProject.getLocation() != null && sourceSetProject.getLocation().lastSegment() != null) {
 			return sourceSetProject.getLocation().lastSegment();
 		}

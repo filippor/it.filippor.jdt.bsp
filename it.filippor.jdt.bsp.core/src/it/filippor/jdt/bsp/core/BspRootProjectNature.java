@@ -3,12 +3,17 @@ package it.filippor.jdt.bsp.core;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectNature;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.QualifiedName;
 
 public class BspRootProjectNature implements IProjectNature {
 
 	public static final String NATURE_ID = "it.filippor.jdt.bsp.core.bspRootNature";
 	public static final String SETTINGS_NODE = "it.filippor.jdt.bsp.core";
 	public static final String KEY_BSP_COMMAND_LINE = "bspCommandLine";
+	public static final String KEY_MODULE_NAME = "moduleName";
+	public static final String KEY_SOURCE_SET_NAME = "sourceSetName";
+	public static final QualifiedName PROPERTY_MODULE_NAME = new QualifiedName(SETTINGS_NODE, "moduleName");
+	public static final QualifiedName PROPERTY_SOURCE_SET_NAME = new QualifiedName(SETTINGS_NODE, "sourceSetName");
 
 	private IProject project;
 
