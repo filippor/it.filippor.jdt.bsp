@@ -1,0 +1,15 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: %pluginName
+Bundle-SymbolicName: it.filippor.jdt.bsp.ui;singleton:=true
+Bundle-Version: 1.0.0.qualifier
+Bundle-Activator: it.filippor.jdt.bsp.ui.BspClientPlugin
+Bundle-Vendor: %providerName
+Bundle-RequiredExecutionEnvironment: JavaSE-21
+Require-Bundle: org.eclipse.core.runtime,
+ org.eclipse.core.resources,
+ it.filippor.jdt.bsp.core,
+ org.eclipse.ui,
+ org.eclipse.ui.workbench
+Bundle-ActivationPolicy: lazy
+Automatic-Module-Name: it.filippor.jdt.bsp.ui

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.0"?>
+<plugin>
+
+   <extension
+         id="bspRootNature"
+         name="JDT BSP Root Project"
+         point="org.eclipse.core.resources.natures">
+      <runtime>
+         <run
+               class="it.filippor.jdt.bsp.core.BspRootProjectNature">
+         </run>
+      </runtime>
+   </extension>
+
+</plugin>

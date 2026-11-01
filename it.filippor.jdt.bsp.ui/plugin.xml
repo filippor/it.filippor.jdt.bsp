@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   <extension
+         point="org.eclipse.core.runtime.preferences">
+      <initializer
+            class="it.filippor.jdt.bsp.ui.BspPreferenceInitializer">
+      </initializer>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.startup">
+      <startup
+            class="it.filippor.jdt.bsp.ui.BspEarlyStartup">
+      </startup>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.commands">
+      <category
+            id="it.filippor.jdt.bsp.ui.commands.category"
+            name="JDT BSP">
+      </category>
+      <command
+            categoryId="it.filippor.jdt.bsp.ui.commands.category"
+            id="it.filippor.jdt.bsp.ui.commands.start"
+            name="JDT BSP: Start Client">
+      </command>
+      <command
+            categoryId="it.filippor.jdt.bsp.ui.commands.category"
+            id="it.filippor.jdt.bsp.ui.commands.stop"
+            name="JDT BSP: Stop Client">
+      </command>
+      <command
+            categoryId="it.filippor.jdt.bsp.ui.commands.category"
+            id="it.filippor.jdt.bsp.ui.commands.restartRoot"
+            name="JDT BSP: Restart Root and Reload Projects">
+      </command>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.handlers">
+      <handler
+            class="it.filippor.jdt.bsp.ui.ui.StartBspClientHandler"
+            commandId="it.filippor.jdt.bsp.ui.commands.start">
+      </handler>
+      <handler
+            class="it.filippor.jdt.bsp.ui.ui.StopBspClientHandler"
+            commandId="it.filippor.jdt.bsp.ui.commands.stop">
+      </handler>
+      <handler
+            class="it.filippor.jdt.bsp.ui.ui.RestartBspRootProjectHandler"
+            commandId="it.filippor.jdt.bsp.ui.commands.restartRoot">
+      </handler>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.menus">
+      <menuContribution
+            locationURI="menu:org.eclipse.ui.main.menu?after=additions">
+         <menu
+               id="it.filippor.jdt.bsp.ui.menu"
+               label="BSP">
+            <command
+                  commandId="it.filippor.jdt.bsp.ui.commands.start"
+                  label="Start BSP Client"
+                  style="push">
+            </command>
+            <command
+                  commandId="it.filippor.jdt.bsp.ui.commands.stop"
+                  label="Stop BSP Client"
+                  style="push">
+            </command>
+         </menu>
+      </menuContribution>
+      <menuContribution
+            locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+         <command
+               commandId="it.filippor.jdt.bsp.ui.commands.restartRoot"
+               label="Restart BSP Server and Reload Projects"
+               style="push">
+            <visibleWhen>
+               <with variable="selection">
+                  <count value="1"></count>
+                  <iterate ifEmpty="false">
+                     <adapt type="org.eclipse.core.resources.IProject">
+                        <test
+                              property="org.eclipse.core.resources.projectNature"
+                              value="it.filippor.jdt.bsp.core.bspRootNature">
+                        </test>
+                     </adapt>
+                  </iterate>
+               </with>
+            </visibleWhen>
+         </command>
+      </menuContribution>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.importWizards">
+      <wizard
+            category="org.eclipse.ui.Basic"
+            class="it.filippor.jdt.bsp.ui.ui.GradleBspImportWizard"
+            id="it.filippor.jdt.bsp.ui.wizard.import.gradleBsp"
+            name="BSP Import">
+      </wizard>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.propertyPages">
+      <page
+            class="it.filippor.jdt.bsp.ui.ui.BspRootProjectPropertyPage"
+            id="it.filippor.jdt.bsp.ui.propertyPage.bspRoot"
+            name="BSP Root"
+            objectClass="org.eclipse.core.resources.IProject">
+         <enabledWhen>
+            <adapt type="org.eclipse.core.resources.IProject">
+               <test
+                     property="org.eclipse.core.resources.projectNature"
+                     value="it.filippor.jdt.bsp.core.bspRootNature">
+               </test>
+            </adapt>
+         </enabledWhen>
+      </page>
+   </extension>
+
+</plugin>

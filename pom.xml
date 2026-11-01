@@ -4,14 +4,14 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.eclipse.jdt</groupId>
-  <artifactId>eclipse.jdt.bsp.parent</artifactId>
+  <groupId>it.filippor.jdt</groupId>
+  <artifactId>it.filippor.jdt.bsp.parent</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <modules>
-    <module>org.eclipse.jdt.bsp.core</module>
-    <module>org.eclipse.jdt.bsp.client</module>
+    <module>it.filippor.jdt.bsp.core</module>
+    <module>it.filippor.jdt.bsp.ui</module>
     <module>org.eclipse.jdt.bsp.feature</module>
     <module>org.eclipse.jdt.bsp.repository</module>
   </modules>
