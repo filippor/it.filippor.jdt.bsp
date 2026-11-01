@@ -28,6 +28,7 @@ import org.osgi.framework.Bundle;
 import it.filippor.jdt.bsp.core.BspConnectionConfig;
 import it.filippor.jdt.bsp.core.BspProcessClient;
 import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
+import it.filippor.jdt.bsp.core.BspRootProjectNature;
 import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
 import it.filippor.jdt.bsp.core.model.BspWorkspaceProjectSynchronizer;
 
@@ -282,6 +283,9 @@ public final class BspClientManager {
 		for (IProject project : ResourcesPlugin.getWorkspace().getRoot().getProjects()) {
 			try {
 				if (!project.exists() || !project.isOpen()) {
+					continue;
+				}
+				if (!project.hasNature(BspRootProjectNature.NATURE_ID)) {
 					continue;
 				}
 				if (project.getLocation() == null) {
