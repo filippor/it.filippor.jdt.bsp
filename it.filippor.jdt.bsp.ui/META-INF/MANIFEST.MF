@@ -10,6 +10,7 @@ Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.core.resources,
  it.filippor.jdt.bsp.core,
  org.eclipse.ui,
- org.eclipse.ui.workbench
+ org.eclipse.ui.workbench,
+ org.eclipse.ui.navigator
 Bundle-ActivationPolicy: lazy
 Automatic-Module-Name: it.filippor.jdt.bsp.ui

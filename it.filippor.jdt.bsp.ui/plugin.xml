@@ -125,4 +125,56 @@
       </page>
    </extension>
 
+   <extension
+         point="org.eclipse.ui.decorators">
+      <decorator
+            adaptable="true"
+            class="it.filippor.jdt.bsp.ui.ui.BspProjectLabelDecorator"
+            id="it.filippor.jdt.bsp.ui.decorators.projectLabel"
+            label="BSP Project Folder Decorator"
+            lightweight="true"
+            state="true">
+      </decorator>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.navigator.navigatorContent">
+      <navigatorContent
+            activeByDefault="true"
+            contentProvider="it.filippor.jdt.bsp.ui.ui.BspSourceSetContentProvider"
+            id="it.filippor.jdt.bsp.ui.navigator.sourceSets"
+            labelProvider="it.filippor.jdt.bsp.ui.ui.BspSourceSetLabelProvider"
+            name="BSP Source Sets"
+            priority="normal">
+         <triggerPoints>
+            <instanceof
+                  value="org.eclipse.core.resources.IProject">
+            </instanceof>
+         </triggerPoints>
+         <possibleChildren>
+            <instanceof
+                  value="org.eclipse.core.resources.IProject">
+            </instanceof>
+            <instanceof
+                  value="it.filippor.jdt.bsp.ui.ui.BspSourceSetsExplorerNode">
+            </instanceof>
+            <instanceof
+                  value="it.filippor.jdt.bsp.ui.ui.BspSourceSetExplorerNode">
+            </instanceof>
+         </possibleChildren>
+      </navigatorContent>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.navigator.viewer">
+      <viewerContentBinding
+            viewerId="org.eclipse.ui.navigator.ProjectExplorer">
+         <includes>
+            <contentExtension
+                  pattern="it.filippor.jdt.bsp.ui.navigator.sourceSets">
+            </contentExtension>
+         </includes>
+      </viewerContentBinding>
+   </extension>
+
 </plugin>
