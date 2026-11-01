@@ -18,7 +18,7 @@ public class GradleBspImportWizard extends Wizard implements IImportWizard {
 
 	@Override
 	public void init(IWorkbench workbench, IStructuredSelection selection) {
-		setWindowTitle("Import Gradle Projects (BSP)");
+		setWindowTitle("BSP Import");
 	}
 
 	@Override
@@ -37,9 +37,9 @@ public class GradleBspImportWizard extends Wizard implements IImportWizard {
 		try {
 			prefs.flush();
 		} catch (BackingStoreException e) {
-			BspClientPlugin.logError("Failed to save BSP import preferences", e);
+			BspClientPlugin.logError("Failed to save BSP import settings", e);
 			MessageDialog.openError(getShell(), "BSP Import",
-					"Failed to save BSP preferences: " + e.getMessage());
+					"Failed to save BSP import settings: " + e.getMessage());
 			return false;
 		}
 		if (this.page.shouldStartClient()) {

@@ -18,7 +18,7 @@ public class BspPreferenceInitializer extends AbstractPreferenceInitializer {
 		Preferences defaults = DefaultScope.INSTANCE.getNode(BspClientPlugin.PLUGIN_ID);
 		defaults.put(PREF_COMMAND_LINE, DEFAULT_COMMAND_LINE);
 		defaults.put(PREF_ROOT_DIRECTORIES, DEFAULT_ROOT_DIRECTORY);
-		defaults.put(PREF_COMMAND_MODE, "embedded");
+		defaults.put(PREF_COMMAND_MODE, "wrapper");
 		defaults.put(PREF_GRADLE_EXECUTABLE_PATH, "");
 	}
 }

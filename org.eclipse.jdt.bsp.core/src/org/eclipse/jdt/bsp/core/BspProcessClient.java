@@ -99,7 +99,8 @@ public class BspProcessClient {
 		try {
 			onInfo.accept("BSP initialize request starting for root: " + config.workingDirectory());
 			InitializeBuildResult init = this.server
-					.buildInitialize(Bsp4jSupport.createInitializeParams(config.workingDirectory().toUri(), "Eclipse IDE", "0.1.0"))
+					.buildInitialize(Bsp4jSupport.createInitializeParams(config.workingDirectory().toUri(), "Eclipse IDE", "0.1.0",
+							config.initializeData()))
 					.get(INIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			onInfo.accept(init == null ? "BSP initialized" : "BSP initialized successfully");
 

@@ -23,14 +23,13 @@ class GradleBspImportWizardPage extends WizardPage {
 	private static final String MODE_SYSTEM = "system";
 	private static final String MODE_PATH = "path";
 	private static final String MODE_CUSTOM = "custom";
-	private static final String MODE_EMBEDDED = "embedded";
+	private static final boolean WINDOWS_HOST = System.getProperty("os.name", "").toLowerCase().contains("win");
 
 	private Text commandLineText;
 	private Text rootDirectoryText;
 	private Text executablePathText;
 	private Button wrapperModeButton;
 	private Button systemModeButton;
-	private Button embeddedModeButton;
 	private Button pathModeButton;
 	private Button customModeButton;
 	private Button browseExecutableButton;
@@ -39,8 +38,8 @@ class GradleBspImportWizardPage extends WizardPage {
 
 	GradleBspImportWizardPage() {
 		super("gradleBspImportPage");
-		setTitle("Import Gradle Projects with BSP");
-		setDescription("Configure Gradle BSP roots and start BSP sessions.");
+		setTitle("BSP Import");
+		setDescription("Choose wrapper/system/path with embedded BSP plugin, or provide a custom command line.");
 	}
 
 	@Override
@@ -62,7 +61,7 @@ class GradleBspImportWizardPage extends WizardPage {
 
 	private void createCommandModeField(Composite parent) {
 		Label label = new Label(parent, SWT.NONE);
-		label.setText("Command mode:");
+		label.setText("BSP command mode:");
 		label.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
 
 		Composite modeComposite = new Composite(parent, SWT.NONE);
@@ -70,15 +69,13 @@ class GradleBspImportWizardPage extends WizardPage {
 		modeComposite.setLayout(new GridLayout(2, false));
 
 		this.wrapperModeButton = createModeButton(modeComposite,
-				"Gradle wrapper in each root (cmd /c gradlew.bat bsp)", MODE_WRAPPER);
+				"Gradle wrapper with embedded BSP plugin (" + defaultWrapperCommand() + ")", MODE_WRAPPER);
 		this.systemModeButton = createModeButton(modeComposite,
-				"Gradle from system PATH (gradle bsp)", MODE_SYSTEM);
-		this.embeddedModeButton = createModeButton(modeComposite,
-				"Embedded BSP server (no project edits)", MODE_EMBEDDED);
+				"System Gradle with embedded BSP plugin (gradle bsp)", MODE_SYSTEM);
 		this.pathModeButton = createModeButton(modeComposite,
-				"Specific Gradle executable path", MODE_PATH);
+				"Specific Gradle installation with embedded BSP plugin", MODE_PATH);
 		this.customModeButton = createModeButton(modeComposite,
-				"Custom BSP server command", MODE_CUSTOM);
+				"Custom command line", MODE_CUSTOM);
 
 		this.executablePathText = new Text(modeComposite, SWT.BORDER);
 		this.executablePathText.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
@@ -110,7 +107,7 @@ class GradleBspImportWizardPage extends WizardPage {
 
 	private void createCommandLineField(Composite parent) {
 		Label label = new Label(parent, SWT.NONE);
-		label.setText("BSP command line:");
+		label.setText("Custom command line:");
 
 		this.commandLineText = new Text(parent, SWT.BORDER);
 		this.commandLineText.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1));
@@ -119,7 +116,7 @@ class GradleBspImportWizardPage extends WizardPage {
 
 	private void createRootsField(Composite parent) {
 		Label label = new Label(parent, SWT.NONE);
-		label.setText("Gradle root directory:");
+		label.setText("BSP root directory:");
 
 		this.rootDirectoryText = new Text(parent, SWT.BORDER);
 		this.rootDirectoryText.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
@@ -146,12 +143,10 @@ class GradleBspImportWizardPage extends WizardPage {
 		}
 		this.wrapperModeButton.setSelection(MODE_WRAPPER.equals(mode));
 		this.systemModeButton.setSelection(MODE_SYSTEM.equals(mode));
-		this.embeddedModeButton.setSelection(MODE_EMBEDDED.equals(mode));
 		this.pathModeButton.setSelection(MODE_PATH.equals(mode));
 		this.customModeButton.setSelection(MODE_CUSTOM.equals(mode));
 		if (!this.wrapperModeButton.getSelection() && !this.systemModeButton.getSelection()
-				&& !this.embeddedModeButton.getSelection() && !this.pathModeButton.getSelection()
-				&& !this.customModeButton.getSelection()) {
+				&& !this.pathModeButton.getSelection() && !this.customModeButton.getSelection()) {
 			this.systemModeButton.setSelection(true);
 		}
 
@@ -193,21 +188,19 @@ class GradleBspImportWizardPage extends WizardPage {
 			return;
 		}
 		if (this.wrapperModeButton.getSelection()) {
-			this.commandLineText.setText("cmd /c gradlew.bat bsp");
+			this.commandLineText.setText("<embedded-gradle-bsp:wrapper>");
 			return;
 		}
 		if (this.pathModeButton.getSelection()) {
 			String executable = this.executablePathText.getText().trim();
 			if (!executable.isBlank()) {
-				this.commandLineText.setText(quote(executable) + " bsp");
+				this.commandLineText.setText("<embedded-gradle-bsp:path=" + executable + ">");
+			} else {
+				this.commandLineText.setText("<embedded-gradle-bsp:path>");
 			}
 			return;
 		}
-		if (this.embeddedModeButton.getSelection()) {
-			this.commandLineText.setText("<embedded-gradle-bsp>");
-			return;
-		}
-		this.commandLineText.setText("gradle bsp");
+		this.commandLineText.setText("<embedded-gradle-bsp:system>");
 	}
 
 	private static String quote(String value) {
@@ -215,6 +208,10 @@ class GradleBspImportWizardPage extends WizardPage {
 			return '"' + value + '"';
 		}
 		return value;
+	}
+
+	private static String defaultWrapperCommand() {
+		return WINDOWS_HOST ? "cmd /c gradlew.bat bsp" : "./gradlew bsp";
 	}
 
 	private void browseExecutable() {
@@ -229,7 +226,7 @@ class GradleBspImportWizardPage extends WizardPage {
 
 	private void chooseRootDirectory() {
 		DirectoryDialog dialog = new DirectoryDialog(getShell());
-		dialog.setMessage("Select a Gradle root directory");
+		dialog.setMessage("Select a BSP root directory");
 		String path = dialog.open();
 		if (path == null || path.isBlank()) {
 			return;
@@ -252,15 +249,16 @@ class GradleBspImportWizardPage extends WizardPage {
 				setPageComplete(false);
 				return;
 			}
-			if (!Files.isRegularFile(Path.of(executablePath))) {
-				setErrorMessage("Gradle executable does not exist: " + executablePath);
+			Path configuredPath = Path.of(executablePath);
+			if (!Files.isRegularFile(configuredPath) && !Files.isDirectory(configuredPath)) {
+				setErrorMessage("Gradle installation path does not exist: " + executablePath);
 				setPageComplete(false);
 				return;
 			}
 		}
 		String root = getRootDirectory();
 		if (root.isBlank()) {
-			setErrorMessage("A Gradle root directory is required.");
+			setErrorMessage("A BSP root directory is required.");
 			setPageComplete(false);
 			return;
 		}
@@ -287,9 +285,6 @@ class GradleBspImportWizardPage extends WizardPage {
 		}
 		if (this.pathModeButton.getSelection()) {
 			return MODE_PATH;
-		}
-		if (this.embeddedModeButton.getSelection()) {
-			return MODE_EMBEDDED;
 		}
 		if (this.customModeButton.getSelection()) {
 			return MODE_CUSTOM;

@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,8 +15,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.eclipse.core.resources.IProject;
-import org.eclipse.core.resources.IProjectDescription;
-import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
@@ -25,11 +24,11 @@ import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jdt.bsp.core.BspConnectionConfig;
+import org.eclipse.jdt.bsp.core.BspProjectSettingsStore;
 import org.eclipse.jdt.bsp.core.BspProcessClient;
 import org.eclipse.jdt.bsp.core.model.BspSourceSetModel;
 import org.eclipse.jdt.bsp.core.model.BspWorkspaceProjectSynchronizer;
 import org.osgi.framework.Bundle;
-import org.osgi.service.prefs.Preferences;
 
 public final class BspClientManager {
 
@@ -38,17 +37,16 @@ public final class BspClientManager {
 	private static final String MODE_SYSTEM = "system";
 	private static final String MODE_PATH = "path";
 	private static final String MODE_CUSTOM = "custom";
+	// Kept for backward compatibility with already persisted preferences.
 	private static final String MODE_EMBEDDED = "embedded";
 	private static final String BSP_CORE_BUNDLE_ID = "org.eclipse.jdt.bsp.core";
 	private static final String BSP_JAVA_HOME_PROPERTY = "org.eclipse.jdt.bsp.java.home";
 	private static final String BSP_JAVA_COMMAND_PROPERTY = "org.eclipse.jdt.bsp.java.command";
 	private static final String BSP_JAVA_HOME_ENV = "JDT_BSP_JAVA_HOME";
-	private static final int MAX_NATURE_RETRY_ATTEMPTS = 10;
 
 	private static final BspClientManager INSTANCE = new BspClientManager();
 
 	private final Map<Path, BspProcessClient> clients = new ConcurrentHashMap<>();
-	private final Map<String, Integer> pendingNatureRetries = new ConcurrentHashMap<>();
 	private final BspWorkspaceProjectSynchronizer synchronizer = new BspWorkspaceProjectSynchronizer();
 
 	private BspClientManager() {
@@ -82,7 +80,6 @@ public final class BspClientManager {
 				probes.add(probe);
 				try {
 					IProject rootProject = this.synchronizer.ensureRootProject(rootLabel, commandLineForRoot, monitor);
-					ensureBspRootNature(rootProject, monitor);
 					BspClientPlugin.logInfo("BSP root project ensured for: " + rootLabel);
 					startClient(bspClient, config, rootLabel,
 							message -> BspClientPlugin.logInfo("BSP[" + rootLabel + "] <- " + summarize(message)),
@@ -171,47 +168,6 @@ public final class BspClientManager {
 		}
 	}
 
-	private void ensureBspRootNature(IProject project, IProgressMonitor monitor) {
-		try {
-			if (ResourcesPlugin.getWorkspace().getNatureDescriptor(BspRootProjectNature.NATURE_ID) == null) {
-				scheduleNatureRetry(project);
-				return;
-			}
-			this.pendingNatureRetries.remove(project.getName());
-			if (project.hasNature(BspRootProjectNature.NATURE_ID)) {
-				return;
-			}
-			IProjectDescription description = project.getDescription();
-			String[] natures = description.getNatureIds();
-			List<String> updated = new ArrayList<>(natures.length + 1);
-			updated.add(BspRootProjectNature.NATURE_ID);
-			updated.addAll(Arrays.asList(natures));
-			description.setNatureIds(updated.toArray(String[]::new));
-			project.setDescription(description, monitor);
-		} catch (CoreException e) {
-			BspClientPlugin.logError("Failed to apply BSP root nature to project: " + project.getName(), e);
-		}
-	}
-
-	private void scheduleNatureRetry(IProject project) {
-		int attempt = this.pendingNatureRetries.merge(project.getName(), 1, Integer::sum);
-		if (attempt > MAX_NATURE_RETRY_ATTEMPTS) {
-			this.pendingNatureRetries.remove(project.getName());
-			BspClientPlugin.logInfo("BSP root nature is still unavailable after retries for project: " + project.getName());
-			return;
-		}
-		long delayMillis = Math.min(5_000L, 500L * attempt);
-		Job.create("Retry BSP root nature", monitor -> {
-			IProject retryProject = ResourcesPlugin.getWorkspace().getRoot().getProject(project.getName());
-			if (!retryProject.exists() || !retryProject.isOpen()) {
-				this.pendingNatureRetries.remove(project.getName());
-				return Status.CANCEL_STATUS;
-			}
-			ensureBspRootNature(retryProject, monitor);
-			return Status.OK_STATUS;
-		}).schedule(delayMillis);
-	}
-
 	private void startClient(BspProcessClient bspClient, BspConnectionConfig config, String rootLabel,
 			java.util.function.Consumer<String> onInfo,
 			java.util.function.Consumer<String> onStderr,
@@ -267,18 +223,20 @@ public final class BspClientManager {
 	}
 
 	private List<BspConnectionConfig> buildConfigsFromPreferences() throws CoreException {
+		String commandLine = Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID,
+				BspPreferenceInitializer.PREF_COMMAND_LINE, BspPreferenceInitializer.DEFAULT_COMMAND_LINE, null);
+		String mode = Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID,
+				BspPreferenceInitializer.PREF_COMMAND_MODE, MODE_SYSTEM, null);
+		String executablePath = Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID,
+				BspPreferenceInitializer.PREF_GRADLE_EXECUTABLE_PATH, "", null);
+
 		List<BspConnectionConfig> configsFromNature = buildConfigsFromBspRootProjects();
 		if (!configsFromNature.isEmpty()) {
 			return configsFromNature;
 		}
 
-			String commandLine = Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID,
-					BspPreferenceInitializer.PREF_COMMAND_LINE, BspPreferenceInitializer.DEFAULT_COMMAND_LINE, null);
-			String mode = Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID,
-					BspPreferenceInitializer.PREF_COMMAND_MODE, MODE_SYSTEM, null);
-			String executablePath = Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID,
-					BspPreferenceInitializer.PREF_GRADLE_EXECUTABLE_PATH, "", null);
-			List<String> command = buildCommand(mode, commandLine, executablePath);
+		List<String> command = buildCommand(mode, commandLine, executablePath);
+		Map<String, Object> initializeData = buildInitializeData(mode, executablePath);
 		if (command.isEmpty()) {
 			throw new CoreException(new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID,
 					"BSP command line preference resolved to empty command"));
@@ -300,20 +258,32 @@ public final class BspClientManager {
 			rootPath = roots.isEmpty() ? Path.of(ResourcesPlugin.getWorkspace().getRoot().getLocation().toOSString())
 					: roots.get(0);
 		}
-		return List.of(new BspConnectionConfig(command, rootPath));
+		return List.of(new BspConnectionConfig(command, rootPath, initializeData));
 	}
 
 	private List<BspConnectionConfig> buildConfigsFromBspRootProjects() {
 		List<BspConnectionConfig> configs = new ArrayList<>();
+		String mode = Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID,
+				BspPreferenceInitializer.PREF_COMMAND_MODE, MODE_SYSTEM, null);
+		String executablePath = Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID,
+				BspPreferenceInitializer.PREF_GRADLE_EXECUTABLE_PATH, "", null);
 		String defaultCommandLine = Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID,
 				BspPreferenceInitializer.PREF_COMMAND_LINE, BspPreferenceInitializer.DEFAULT_COMMAND_LINE, null);
+		List<String> defaultCommand;
+		Map<String, Object> defaultInitializeData;
+		try {
+			defaultCommand = buildCommand(mode, defaultCommandLine, executablePath);
+			defaultInitializeData = buildInitializeData(mode, executablePath);
+		} catch (CoreException e) {
+			BspClientPlugin.logError("Failed to resolve BSP command preferences", e);
+			return configs;
+		}
 		for (IProject project : ResourcesPlugin.getWorkspace().getRoot().getProjects()) {
 			try {
-				if (!project.exists() || !project.isOpen() || !project.hasNature(BspRootProjectNature.NATURE_ID)) {
+				if (!project.exists() || !project.isOpen()) {
 					continue;
 				}
-				Preferences node = new ProjectScope(project).getNode(BspRootProjectNature.SETTINGS_NODE);
-				String rootFolder = node.get(BspRootProjectNature.KEY_BSP_ROOT_FOLDER, "");
+				String rootFolder = BspProjectSettingsStore.readRootFolder(project);
 				if (rootFolder == null || rootFolder.isBlank()) {
 					continue;
 				}
@@ -321,10 +291,12 @@ public final class BspClientManager {
 				if (!Files.isDirectory(rootPath)) {
 					continue;
 				}
-				String commandLine = node.get(BspRootProjectNature.KEY_BSP_COMMAND_LINE, defaultCommandLine);
-				List<String> command = parseCommandLine(commandLine);
+				String commandLine = BspProjectSettingsStore.readCommandLine(project, defaultCommandLine);
+				boolean customMode = MODE_CUSTOM.equals(mode);
+				List<String> command = customMode ? parseCommandLine(commandLine) : defaultCommand;
+				Map<String, Object> initializeData = customMode ? Map.of() : defaultInitializeData;
 				if (!command.isEmpty()) {
-					configs.add(new BspConnectionConfig(command, rootPath));
+					configs.add(new BspConnectionConfig(command, rootPath, initializeData));
 				}
 			} catch (Exception e) {
 				BspClientPlugin.logError("Failed to read BSP root project settings for " + project.getName(), e);
@@ -336,19 +308,56 @@ public final class BspClientManager {
 	private List<String> buildCommand(String mode, String customCommandLine, String executablePath) throws CoreException {
 		String resolvedMode = mode == null || mode.isBlank() ? MODE_SYSTEM : mode;
 		return switch (resolvedMode) {
-			case MODE_WRAPPER -> isWindowsHost() ? List.of("cmd", "/c", "gradlew.bat", "bsp") : List.of("./gradlew", "bsp");
-			case MODE_SYSTEM -> List.of("gradle", "bsp");
+			case MODE_WRAPPER -> buildEmbeddedServerCommand();
+			case MODE_SYSTEM -> buildEmbeddedServerCommand();
 			case MODE_PATH -> {
 				if (executablePath == null || executablePath.isBlank()) {
 					throw new CoreException(new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID,
 							"Gradle executable path is empty in path mode"));
 				}
-				yield List.of(executablePath.trim(), "bsp");
+				yield buildEmbeddedServerCommand();
 			}
 			case MODE_EMBEDDED -> buildEmbeddedServerCommand();
 			case MODE_CUSTOM -> parseCommandLine(customCommandLine);
 			default -> parseCommandLine(customCommandLine);
 		};
+	}
+
+	private Map<String, Object> buildInitializeData(String mode, String executablePath) throws CoreException {
+		String resolvedMode = mode == null || mode.isBlank() ? MODE_SYSTEM : mode;
+		return switch (resolvedMode) {
+			case MODE_WRAPPER -> Map.of("isWrapperEnabled", Boolean.TRUE);
+			case MODE_SYSTEM -> Map.of("isWrapperEnabled", Boolean.FALSE);
+			case MODE_PATH -> {
+				if (executablePath == null || executablePath.isBlank()) {
+					throw new CoreException(new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID,
+							"Gradle executable path is empty in path mode"));
+				}
+				Map<String, Object> data = new LinkedHashMap<>();
+				data.put("isWrapperEnabled", Boolean.FALSE);
+				data.put("gradleHome", resolveGradleHome(executablePath));
+				yield data;
+			}
+			case MODE_CUSTOM -> Map.of();
+			case MODE_EMBEDDED -> Map.of();
+			default -> Map.of();
+		};
+	}
+
+	private static String resolveGradleHome(String executablePath) {
+		Path path = Path.of(executablePath.trim());
+		if (Files.isDirectory(path)) {
+			return path.toString();
+		}
+		Path parent = path.getParent();
+		if (parent == null) {
+			return executablePath.trim();
+		}
+		Path binParent = parent.getFileName();
+		if (binParent != null && "bin".equalsIgnoreCase(binParent.toString()) && parent.getParent() != null) {
+			return parent.getParent().toString();
+		}
+		return parent.toString();
 	}
 
 	private List<String> buildEmbeddedServerCommand() throws CoreException {

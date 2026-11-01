@@ -3,6 +3,7 @@ package org.eclipse.jdt.bsp.core.model;
 import java.net.URI;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -15,30 +16,32 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.resources.IWorkspaceRoot;
-import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.QualifiedName;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.jdt.bsp.core.BspProjectSettingsStore;
+import org.eclipse.jdt.bsp.core.BspRootProjectNature;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
-import org.osgi.service.prefs.BackingStoreException;
-import org.osgi.service.prefs.Preferences;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkUtil;
 
 public class BspWorkspaceProjectSynchronizer {
 
 	private final BspClasspathMapper classpathMapper = new BspClasspathMapper();
 	private static final String BSP_META = "org.eclipse.jdt.bsp.core";
-	private static final String BSP_CLIENT_NODE = "org.eclipse.jdt.bsp.client";
-	private static final String BSP_NATURE_ID = "org.eclipse.jdt.bsp.client.bspRootNature";
+	private static final String CORE_PLUGIN_ID = "org.eclipse.jdt.bsp.core";
 	private static final QualifiedName BSP_ROOT_FOLDER = new QualifiedName(BSP_META, "rootFolder");
 	private static final QualifiedName BSP_COMMAND = new QualifiedName(BSP_META, "commandLine");
 	private static final Pattern PROJECT_DEP_PATTERN = Pattern
 			.compile("project\\s*\\(\\s*(?:path\\s*:\\s*)?['\"](:[^'\"]+)['\"]\\s*\\)");
-
 	public IProject ensureRootProject(String rootLabel, String commandLine, IProgressMonitor monitor)
 			throws CoreException {
 		IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
@@ -48,7 +51,10 @@ public class BspWorkspaceProjectSynchronizer {
 		try {
 			ensureBspRootNature(rootProject, monitor);
 		} catch (CoreException e) {
-			// Keep import/startup functional even if the nature is temporarily unavailable.
+			log(IStatus.WARNING,
+					"Failed to apply BSP root nature for project '" + rootProject.getName()
+							+ "'. Startup will continue without the BSP root nature.",
+					e);
 		}
 		rootProject.setPersistentProperty(BSP_ROOT_FOLDER, rootLabel);
 		rootProject.setPersistentProperty(BSP_COMMAND, commandLine);
@@ -361,27 +367,34 @@ public class BspWorkspaceProjectSynchronizer {
 		IProjectDescription description = project.getDescription();
 		String[] natures = description.getNatureIds();
 		for (String nature : natures) {
-			if (BSP_NATURE_ID.equals(nature)) {
+			if (BspRootProjectNature.NATURE_ID.equals(nature)) {
 				return;
 			}
 		}
-		List<String> updated = new ArrayList<>(natures.length + 1);
-		updated.add(BSP_NATURE_ID);
-		for (String nature : natures) {
-			updated.add(nature);
+		String[] newNatures = Arrays.copyOf(natures, natures.length + 1);
+		newNatures[natures.length] = BspRootProjectNature.NATURE_ID;
+		IStatus status = ResourcesPlugin.getWorkspace().validateNatureSet(newNatures);
+		if (status.getCode() == IStatus.OK) {
+		    description.setNatureIds(newNatures);
+		    project.setDescription(description, null);
+		} else {
+		    throw new CoreException(new Status(IStatus.ERROR, CORE_PLUGIN_ID,
+		            "Cannot apply BSP root nature to project '" + project.getName() + "': " + status.getMessage()));
 		}
-		description.setNatureIds(updated.toArray(String[]::new));
-		project.setDescription(description, monitor);
+	}
+
+	private static void log(int severity, String message, Throwable error) {
+		Bundle bundle = FrameworkUtil.getBundle(BspWorkspaceProjectSynchronizer.class);
+		if (bundle == null) {
+			return;
+		}
+		Platform.getLog(bundle).log(new Status(severity, CORE_PLUGIN_ID, message, error));
 	}
 
 	private static void writeProjectSettings(IProject project, String rootLabel, String commandLine) {
-		ProjectScope scope = new ProjectScope(project);
-		Preferences node = scope.getNode(BSP_CLIENT_NODE);
-		node.put("bspRootFolder", rootLabel);
-		node.put("bspCommandLine", commandLine);
 		try {
-			node.flush();
-		} catch (BackingStoreException e) {
+			BspProjectSettingsStore.write(project, rootLabel, commandLine);
+		} catch (Exception e) {
 			// Metadata persistence is best-effort; startup can still proceed via persistent properties.
 		}
 	}

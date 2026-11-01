@@ -10,20 +10,6 @@
    </extension>
 
    <extension
-         id="org.eclipse.jdt.bsp.client.natures"
-         point="org.eclipse.core.resources.natures">
-      <nature
-            id="org.eclipse.jdt.bsp.client.bspRootNature"
-            name="JDT BSP Root Project">
-         <runtime>
-            <run
-                  class="org.eclipse.jdt.bsp.client.BspRootProjectNature">
-            </run>
-         </runtime>
-      </nature>
-   </extension>
-
-   <extension
          point="org.eclipse.ui.startup">
       <startup
             class="org.eclipse.jdt.bsp.client.BspEarlyStartup">
@@ -87,8 +73,26 @@
             category="org.eclipse.ui.Basic"
             class="org.eclipse.jdt.bsp.client.ui.GradleBspImportWizard"
             id="org.eclipse.jdt.bsp.client.wizard.import.gradleBsp"
-            name="Gradle Project (BSP)">
+            name="BSP Import">
       </wizard>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.propertyPages">
+      <page
+            class="org.eclipse.jdt.bsp.client.ui.BspRootProjectPropertyPage"
+            id="org.eclipse.jdt.bsp.client.propertyPage.bspRoot"
+            name="BSP Root"
+            objectClass="org.eclipse.core.resources.IProject">
+         <enabledWhen>
+            <adapt type="org.eclipse.core.resources.IProject">
+               <test
+                     property="org.eclipse.core.resources.projectNature"
+                     value="org.eclipse.jdt.bsp.core.bspRootNature">
+               </test>
+            </adapt>
+         </enabledWhen>
+      </page>
    </extension>
 
 </plugin>
