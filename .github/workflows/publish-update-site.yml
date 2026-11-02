@@ -1,0 +1,48 @@
+name: Publish Eclipse Update Site
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build Tycho repository
+        run: mvn -B -ntp -Pbuild-individual-bundles clean package
+
+      - name: Set up Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload update site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: it.filippor.jdt.bsp.repository/target/repository
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
