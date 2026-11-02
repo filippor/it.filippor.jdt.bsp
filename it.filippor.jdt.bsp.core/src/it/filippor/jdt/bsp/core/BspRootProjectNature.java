@@ -10,10 +10,10 @@ public class BspRootProjectNature implements IProjectNature {
 	public static final String NATURE_ID = "it.filippor.jdt.bsp.core.bspRootNature";
 	public static final String SETTINGS_NODE = "it.filippor.jdt.bsp.core";
 	public static final String KEY_BSP_COMMAND_LINE = "bspCommandLine";
-	public static final String KEY_MODULE_NAME = "moduleName";
-	public static final String KEY_SOURCE_SET_NAME = "sourceSetName";
-	public static final QualifiedName PROPERTY_MODULE_NAME = new QualifiedName(SETTINGS_NODE, "moduleName");
-	public static final QualifiedName PROPERTY_SOURCE_SET_NAME = new QualifiedName(SETTINGS_NODE, "sourceSetName");
+	public static final String KEY_CONTAINER_NAME = "containerName";
+	public static final String KEY_BUILD_TARGET_NAME = "buildTargetName";
+	public static final QualifiedName PROPERTY_CONTAINER_NAME = new QualifiedName(SETTINGS_NODE, "containerName");
+	public static final QualifiedName PROPERTY_BUILD_TARGET_NAME = new QualifiedName(SETTINGS_NODE, "buildTargetName");
 
 	private IProject project;
 

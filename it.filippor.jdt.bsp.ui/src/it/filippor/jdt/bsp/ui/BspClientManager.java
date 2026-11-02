@@ -7,11 +7,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.eclipse.core.resources.IProject;
@@ -29,6 +31,7 @@ import it.filippor.jdt.bsp.core.BspConnectionConfig;
 import it.filippor.jdt.bsp.core.BspProcessClient;
 import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
 import it.filippor.jdt.bsp.core.BspRootProjectNature;
+import it.filippor.jdt.bsp.core.model.BspBuildTargetActionModel;
 import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
 import it.filippor.jdt.bsp.core.model.BspWorkspaceProjectSynchronizer;
 
@@ -89,9 +92,9 @@ public final class BspClientManager {
 					IProject rootProject = this.synchronizer.ensureRootProject(rootLabel, commandLineForRoot, monitor);
 					BspClientPlugin.logInfo("BSP root project ensured for: " + rootLabel);
 					startClient(bspClient, config, rootLabel,
-							message -> BspClientPlugin.logInfo("BSP[" + rootLabel + "] <- " + summarize(message)),
+							message -> logInfo(rootLabel, "BSP[" + rootLabel + "] <- " + summarize(message)),
 							line -> {
-								BspClientPlugin.logInfo("BSP[" + rootLabel + "] ! " + line);
+								logError(rootLabel, "BSP[" + rootLabel + "] ! " + line, null);
 								if (line != null && line.contains("BSP initialization failed")) {
 									probe.failureMessage = line;
 									probe.latch.countDown();
@@ -214,17 +217,17 @@ public final class BspClientManager {
 	}
 
 	private void logSourceSets(String rootLabel, String commandLine, List<BspSourceSetModel> models) {
-		BspClientPlugin.logInfo("BSP[" + rootLabel + "] source sets resolved: " + models.size());
+		BspClientPlugin.logInfo("BSP[" + rootLabel + "] build targets resolved: " + models.size());
 		for (BspSourceSetModel model : models) {
-			BspClientPlugin.logInfo("BSP[" + rootLabel + "] source set id: " + model.sourceSetId());
+			BspClientPlugin.logInfo("BSP[" + rootLabel + "] build target id: " + model.sourceSetId());
 		}
-		Job.create("Synchronize BSP source sets", monitor -> {
+		Job.create("Synchronize BSP build targets", monitor -> {
 			try {
 				this.synchronizer.synchronize(rootLabel, commandLine, models, monitor);
 				return Status.OK_STATUS;
 			} catch (Exception e) {
-				BspClientPlugin.logError("Failed to synchronize BSP source sets", e);
-				return new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID, "Failed to synchronize BSP source sets", e);
+				BspClientPlugin.logError("Failed to synchronize BSP build targets", e);
+				return new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID, "Failed to synchronize BSP build targets", e);
 			}
 		}).schedule();
 	}
@@ -363,6 +366,82 @@ public final class BspClientManager {
 		}
 		return parent.toString();
 	}
+	public List<BspActionableTaskItem> listActionableTasks() {
+		List<BspActionableTaskItem> tasks = new ArrayList<>();
+		for (Map.Entry<Path, BspProcessClient> entry : new ArrayList<>(this.clients.entrySet())) {
+			String root = entry.getKey().toString();
+			for (BspBuildTargetActionModel model : entry.getValue().listBuildTargetActions()) {
+				String targetName = model.displayName() == null || model.displayName().isBlank()
+						? model.buildTargetId()
+						: model.displayName();
+				String targetId = model.buildTargetId() == null ? "" : model.buildTargetId();
+				tasks.add(new BspActionableTaskItem(root, targetName, targetId, "compile", model.canPackage()));
+				tasks.add(new BspActionableTaskItem(root, targetName, targetId, "run", model.canRun()));
+				tasks.add(new BspActionableTaskItem(root, targetName, targetId, "test", model.canTest()));
+			}
+		}
+		tasks.sort(Comparator
+				.comparing(BspActionableTaskItem::root, String.CASE_INSENSITIVE_ORDER)
+				.thenComparing(BspActionableTaskItem::buildTarget, String.CASE_INSENSITIVE_ORDER)
+				.thenComparing(BspActionableTaskItem::task, String.CASE_INSENSITIVE_ORDER));
+		return tasks;
+	}
+
+	public IStatus executeTask(String root, String buildTargetId, String task, boolean debug) {
+		return executeTask(root, buildTargetId, task, debug, null);
+	}
+
+	public IStatus executeTask(String root, String buildTargetId, String task, boolean debug,
+			IProgressMonitor monitor) {
+		if (root == null || root.isBlank()) {
+			return new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID, "Missing root for BSP task execution");
+		}
+		if (buildTargetId == null || buildTargetId.isBlank()) {
+			return new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID, "Missing build target id for BSP task execution");
+		}
+		if (task == null || task.isBlank()) {
+			return new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID, "Missing task name for BSP task execution");
+		}
+		BspProcessClient client = this.clients.get(Path.of(root));
+		if (client == null) {
+			return new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID,
+					"No BSP client found for root: " + root + ". Start BSP before running tasks.");
+		}
+		try {
+			logInfo(root, "BSP executing " + (debug ? "debug" : "run") + " task '" + task + "' on " + buildTargetId);
+			String result = client.executeBuildTargetTask(buildTargetId, task, debug,
+					() -> monitor != null && monitor.isCanceled());
+			String mode = debug ? "debug" : "run";
+			String message = "BSP " + mode + " task '" + task + "' completed for target " + buildTargetId
+					+ " (" + result + ")";
+			logInfo(root, message);
+			return new Status(IStatus.OK, BspClientPlugin.PLUGIN_ID, message);
+		} catch (CancellationException e) {
+			String message = "BSP task '" + task + "' cancelled for target " + buildTargetId;
+			logInfo(root, message);
+			return new Status(IStatus.CANCEL, BspClientPlugin.PLUGIN_ID, message, e);
+		} catch (Exception e) {
+			String mode = debug ? "debug" : "run";
+			String message = "BSP " + mode + " task '" + task + "' failed for target " + buildTargetId;
+			logError(root, message, e);
+			return new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID, message + ": " + e.getMessage(), e);
+		}
+	}
+
+	private static void logInfo(String rootLabel, String message) {
+		BspClientPlugin.logInfo(message);
+		BspConsole.write(rootLabel, message, false);
+	}
+
+	private static void logError(String rootLabel, String message, Throwable error) {
+		if (error == null) {
+			BspClientPlugin.logInfo(message);
+			BspConsole.write(rootLabel, message, true);
+			return;
+		}
+		BspClientPlugin.logError(message, error);
+		BspConsole.write(rootLabel, message + "\n" + error, true);
+	}
 
 	private List<String> buildEmbeddedServerCommand() throws CoreException {
 		Path serverJar = resolveBundledPath("lib/gradle-bsp/server.jar");
@@ -435,19 +514,8 @@ public final class BspClientManager {
 	}
 
 	private static String readPreference(String key, String defaultValue) {
-		String value = Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID, key, null, null);
-		if (value != null) {
-			return value;
-		}
-		String legacyValue = Platform.getPreferencesService().getString(BspClientPlugin.LEGACY_PLUGIN_ID, key, null,
-				null);
-		if (legacyValue != null) {
-			return legacyValue;
-		}
-		return Platform.getPreferencesService().getString(BspClientPlugin.LEGACY_PLUGIN_ID_V1, key, defaultValue,
-				null);
+		return Platform.getPreferencesService().getString(BspClientPlugin.PLUGIN_ID, key, defaultValue, null);
 	}
-
 	private static List<String> parseCommandLine(String commandLine) {
 		if (commandLine == null || commandLine.isBlank()) {
 			commandLine = BspPreferenceInitializer.DEFAULT_COMMAND_LINE;

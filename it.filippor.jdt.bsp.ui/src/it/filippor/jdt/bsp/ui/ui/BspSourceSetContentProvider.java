@@ -120,14 +120,14 @@ public class BspSourceSetContentProvider implements ICommonContentProvider {
 		if (hasNature(project, BspModuleProjectNature.NATURE_ID)) {
 			return true;
 		}
-		return project.getName().contains(".module.");
+		return project.getName().contains(".container.");
 	}
 
 	private static boolean isSourceSetProject(IProject project) {
 		if (hasNature(project, BspSourceSetProjectNature.NATURE_ID)) {
 			return true;
 		}
-		return project.getName().contains(".sourceset.");
+		return project.getName().contains(".target.");
 	}
 
 	private static IProject[] referencedProjects(IProject project) {
@@ -141,9 +141,9 @@ public class BspSourceSetContentProvider implements ICommonContentProvider {
 	private static String sourceSetLabel(IProject sourceSetProject) {
 		try {
 			Preferences node = new ProjectScope(sourceSetProject).getNode(BspRootProjectNature.SETTINGS_NODE);
-			String persisted = node.get(BspRootProjectNature.KEY_SOURCE_SET_NAME, null);
+			String persisted = node.get(BspRootProjectNature.KEY_BUILD_TARGET_NAME, null);
 			if ((persisted == null || persisted.isBlank())) {
-				persisted = sourceSetProject.getPersistentProperty(BspRootProjectNature.PROPERTY_SOURCE_SET_NAME);
+				persisted = sourceSetProject.getPersistentProperty(BspRootProjectNature.PROPERTY_BUILD_TARGET_NAME);
 			}
 			if (persisted != null && !persisted.isBlank()) {
 				return persisted;
@@ -155,8 +155,8 @@ public class BspSourceSetContentProvider implements ICommonContentProvider {
 			return sourceSetProject.getLocation().lastSegment();
 		}
 		String name = sourceSetProject.getName();
-		int marker = name.lastIndexOf(".sourceset.");
-		return marker >= 0 ? name.substring(marker + ".sourceset.".length()) : name;
+		int marker = name.lastIndexOf(".target.");
+		return marker >= 0 ? name.substring(marker + ".target.".length()) : name;
 	}
 
 	private static IProject findModuleProject(IProject sourceSetProject) {

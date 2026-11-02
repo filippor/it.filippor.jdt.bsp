@@ -13,7 +13,7 @@ public class BspSourceSetLabelProvider extends LabelProvider implements ICommonL
 	@Override
 	public String getText(Object element) {
 		if (element instanceof BspSourceSetsExplorerNode) {
-			return "Source Sets";
+			return "Build Targets";
 		}
 		if (element instanceof BspSourceSetExplorerNode node) {
 			return node.label();
@@ -63,6 +63,6 @@ public class BspSourceSetLabelProvider extends LabelProvider implements ICommonL
 		} catch (Exception e) {
 			// Fallback below.
 		}
-		return project.getName().contains(".sourceset.");
+		return project.getName().contains(".target.");
 	}
 }

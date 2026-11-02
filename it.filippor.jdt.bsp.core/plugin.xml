@@ -14,8 +14,8 @@
    </extension>
 
    <extension
-         id="bspModuleNature"
-         name="JDT BSP Module Project"
+         id="bspContainerNature"
+         name="JDT BSP Container Project"
          point="org.eclipse.core.resources.natures">
       <runtime>
          <run
@@ -25,8 +25,8 @@
    </extension>
 
    <extension
-         id="bspSourceSetNature"
-         name="JDT BSP Source Set Project"
+         id="bspBuildTargetNature"
+         name="JDT BSP Build Target Project"
          point="org.eclipse.core.resources.natures">
       <runtime>
          <run

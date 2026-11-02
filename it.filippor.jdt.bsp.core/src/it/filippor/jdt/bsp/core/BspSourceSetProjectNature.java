@@ -6,7 +6,7 @@ import org.eclipse.core.runtime.CoreException;
 
 public class BspSourceSetProjectNature implements IProjectNature {
 
-	public static final String NATURE_ID = "it.filippor.jdt.bsp.core.bspSourceSetNature";
+	public static final String NATURE_ID = "it.filippor.jdt.bsp.core.bspBuildTargetNature";
 
 	private IProject project;
 

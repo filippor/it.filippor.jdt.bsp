@@ -76,64 +76,64 @@ public class BspWorkspaceProjectSynchronizer {
 		Map<String, List<BspSourceSetModel>> sourceSetsByModule = groupByModule(rootLabel, sourceSets);
 		Map<String, SourceSetBinding> sourceSetById = new HashMap<>();
 
-		List<IProject> moduleProjects = new ArrayList<>();
+		List<IProject> containerProjects = new ArrayList<>();
 		for (Map.Entry<String, List<BspSourceSetModel>> entry : sourceSetsByModule.entrySet()) {
-			String moduleName = entry.getKey();
-			java.nio.file.Path moduleLocation = resolveModuleLocation(rootLabel, moduleName);
-			String moduleProjectName = toModuleProjectName(rootProjectName, moduleName);
-			IProject moduleProject = root.getProject(moduleProjectName);
-			ensureProject(moduleProject, Path.fromOSString(moduleLocation.toString()), false, monitor);
-			setProjectProperty(moduleProject, BspRootProjectNature.PROPERTY_MODULE_NAME, moduleName);
+			String containerName = entry.getKey();
+			java.nio.file.Path containerLocation = resolveModuleLocation(rootLabel, containerName);
+			String containerProjectName = toModuleProjectName(rootProjectName, containerName);
+			IProject containerProject = root.getProject(containerProjectName);
+			ensureProject(containerProject, Path.fromOSString(containerLocation.toString()), false, monitor);
+			setProjectProperty(containerProject, BspRootProjectNature.PROPERTY_CONTAINER_NAME, containerName);
 			try {
-				ensureBspModuleNature(moduleProject, monitor);
+				ensureBspModuleNature(containerProject, monitor);
 			} catch (CoreException e) {
 				log(IStatus.WARNING,
-						"Failed to apply BSP module nature for project '" + moduleProject.getName()
-								+ "'. Synchronization will continue without the BSP module nature.",
+						"Failed to apply BSP container nature for project '" + containerProject.getName()
+								+ "'. Synchronization will continue without the BSP container nature.",
 						e);
 			}
 
-			List<IProject> sourceSetProjects = new ArrayList<>();
-			List<SourceSetBinding> moduleBindings = new ArrayList<>();
+			List<IProject> buildTargetProjects = new ArrayList<>();
+			List<SourceSetBinding> containerBindings = new ArrayList<>();
 			for (BspSourceSetModel sourceSet : entry.getValue()) {
-				String sourceSetName = extractSourceSetName(sourceSet.sourceSetId());
-				String sourceSetProjectName = toSourceSetProjectName(moduleProjectName, sourceSetName);
-				IProject sourceSetProject = root.getProject(sourceSetProjectName);
-				java.nio.file.Path sourceSetLocation = moduleLocation.resolve(".bsp").resolve("sourcesets")
-						.resolve(sanitize(sourceSetName));
-				ensureProject(sourceSetProject, Path.fromOSString(sourceSetLocation.toString()), false, monitor);
-				setProjectProperty(sourceSetProject, BspRootProjectNature.PROPERTY_SOURCE_SET_NAME, sourceSetName);
+				String buildTargetName = extractSourceSetName(sourceSet.sourceSetId());
+				String buildTargetProjectName = toSourceSetProjectName(containerProjectName, buildTargetName);
+				IProject buildTargetProject = root.getProject(buildTargetProjectName);
+				java.nio.file.Path buildTargetLocation = containerLocation.resolve(".bsp").resolve("targets")
+						.resolve(sanitize(buildTargetName));
+				ensureProject(buildTargetProject, Path.fromOSString(buildTargetLocation.toString()), false, monitor);
+				setProjectProperty(buildTargetProject, BspRootProjectNature.PROPERTY_BUILD_TARGET_NAME, buildTargetName);
 				try {
-					ensureBspSourceSetNature(sourceSetProject, monitor);
+					ensureBspSourceSetNature(buildTargetProject, monitor);
 				} catch (CoreException e) {
 					log(IStatus.WARNING,
-							"Failed to apply BSP source-set nature for project '" + sourceSetProject.getName()
-									+ "'. Synchronization will continue without the BSP source-set nature.",
+							"Failed to apply BSP build-target nature for project '" + buildTargetProject.getName()
+									+ "'. Synchronization will continue without the BSP build-target nature.",
 							e);
 				}
-				ensureJavaNature(sourceSetProject, monitor);
-				IJavaProject javaProject = JavaCore.create(sourceSetProject);
+				ensureJavaNature(buildTargetProject, monitor);
+				IJavaProject javaProject = JavaCore.create(buildTargetProject);
 				this.classpathMapper.apply(javaProject, sourceSet, monitor);
 				applyJavaCompliance(javaProject, sourceSet.javaSourceLevel());
-				SourceSetBinding binding = new SourceSetBinding(moduleName, sourceSetName, sourceSet, sourceSetProject,
+				SourceSetBinding binding = new SourceSetBinding(containerName, buildTargetName, sourceSet, buildTargetProject,
 						javaProject);
-				moduleBindings.add(binding);
+				containerBindings.add(binding);
 				sourceSetById.put(sourceSet.sourceSetId(), binding);
-				sourceSetProjects.add(sourceSetProject);
+				buildTargetProjects.add(buildTargetProject);
 			}
-			applyIntraModuleDependencies(moduleBindings, monitor);
+			applyIntraModuleDependencies(containerBindings, monitor);
 
-			IProjectDescription moduleDescription = moduleProject.getDescription();
-			moduleDescription.setReferencedProjects(sourceSetProjects.toArray(IProject[]::new));
-			moduleProject.setDescription(moduleDescription, monitor);
-			moduleProjects.add(moduleProject);
+			IProjectDescription containerDescription = containerProject.getDescription();
+			containerDescription.setReferencedProjects(buildTargetProjects.toArray(IProject[]::new));
+			containerProject.setDescription(containerDescription, monitor);
+			containerProjects.add(containerProject);
 		}
 
 		applyBspTargetDependencies(rootLabel, sourceSetById, monitor);
 		applyGradleProjectDependencies(rootLabel, sourceSetById, monitor);
 
 		IProjectDescription description = rootProject.getDescription();
-		description.setReferencedProjects(moduleProjects.toArray(IProject[]::new));
+		description.setReferencedProjects(containerProjects.toArray(IProject[]::new));
 		rootProject.setDescription(description, monitor);
 	}
 
@@ -472,10 +472,10 @@ public class BspWorkspaceProjectSynchronizer {
 		// Mirror into .settings so values are visible in project-scoped preference files.
 		try {
 			Preferences node = new ProjectScope(project).getNode(BspRootProjectNature.SETTINGS_NODE);
-			if (BspRootProjectNature.PROPERTY_MODULE_NAME.equals(key)) {
-				node.put(BspRootProjectNature.KEY_MODULE_NAME, value == null ? "" : value);
-			} else if (BspRootProjectNature.PROPERTY_SOURCE_SET_NAME.equals(key)) {
-				node.put(BspRootProjectNature.KEY_SOURCE_SET_NAME, value == null ? "" : value);
+			if (BspRootProjectNature.PROPERTY_CONTAINER_NAME.equals(key)) {
+				node.put(BspRootProjectNature.KEY_CONTAINER_NAME, value == null ? "" : value);
+			} else if (BspRootProjectNature.PROPERTY_BUILD_TARGET_NAME.equals(key)) {
+				node.put(BspRootProjectNature.KEY_BUILD_TARGET_NAME, value == null ? "" : value);
 			}
 			node.flush();
 		} catch (Exception e) {
@@ -489,13 +489,18 @@ public class BspWorkspaceProjectSynchronizer {
 	}
 
 	private static String toModuleProjectName(String rootProjectName, String moduleName) {
-		String child = rootProjectName + ".module." + sanitize(moduleName);
+		String child = rootProjectName + ".container." + sanitize(moduleName);
 		return truncateWithHash(child, 100);
 	}
 
 	private static String toSourceSetProjectName(String moduleProjectName, String sourceSetName) {
-		String child = moduleProjectName + ".sourceset." + sanitize(sourceSetName);
+		String child = moduleProjectName + ".target." + sanitize(sourceSetName);
 		return truncateWithHash(child, 110);
+	}
+
+	private static String toBuildTargetProjectName(String rootProjectName, String containerName, String buildTargetName) {
+		String child = rootProjectName + ".target." + sanitize(containerName) + "." + sanitize(buildTargetName);
+		return truncateWithHash(child, 120);
 	}
 
 	private static String extractModuleName(String rootLabel, String sourceSetId) {
@@ -583,7 +588,6 @@ public class BspWorkspaceProjectSynchronizer {
 		int idx = normalized.lastIndexOf('/');
 		return idx < 0 ? normalized : normalized.substring(idx + 1);
 	}
-
 	private static String extractFolderName(String rootLabel) {
 		if (rootLabel == null || rootLabel.isBlank()) {
 			return "root";

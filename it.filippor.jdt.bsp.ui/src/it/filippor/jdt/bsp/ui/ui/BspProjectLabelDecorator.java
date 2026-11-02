@@ -45,9 +45,9 @@ public class BspProjectLabelDecorator extends LabelProvider implements ILabelDec
 		if (suffixStart >= 0) {
 			suffix = originalText.substring(suffixStart);
 		}
-		String persisted = preferenceValue(project, BspRootProjectNature.KEY_MODULE_NAME);
+		String persisted = preferenceValue(project, BspRootProjectNature.KEY_CONTAINER_NAME);
 		if (persisted == null || persisted.isBlank()) {
-			persisted = persistentProperty(project, BspRootProjectNature.PROPERTY_MODULE_NAME);
+			persisted = persistentProperty(project, BspRootProjectNature.PROPERTY_CONTAINER_NAME);
 		}
 		String base = persisted != null && !persisted.isBlank()
 				? persisted
@@ -63,9 +63,9 @@ public class BspProjectLabelDecorator extends LabelProvider implements ILabelDec
 		if (suffixStart >= 0) {
 			suffix = originalText.substring(suffixStart);
 		}
-		String persisted = preferenceValue(project, BspRootProjectNature.KEY_SOURCE_SET_NAME);
+		String persisted = preferenceValue(project, BspRootProjectNature.KEY_BUILD_TARGET_NAME);
 		if (persisted == null || persisted.isBlank()) {
-			persisted = persistentProperty(project, BspRootProjectNature.PROPERTY_SOURCE_SET_NAME);
+			persisted = persistentProperty(project, BspRootProjectNature.PROPERTY_BUILD_TARGET_NAME);
 		}
 		String name = persisted != null && !persisted.isBlank() ? persisted : project.getName();
 		int marker = name.lastIndexOf('.');

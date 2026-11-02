@@ -8,8 +8,6 @@ import org.osgi.framework.BundleContext;
 public class BspClientPlugin extends AbstractUIPlugin {
 
 	public static final String PLUGIN_ID = "it.filippor.jdt.bsp.ui";
-	public static final String LEGACY_PLUGIN_ID = "org.eclipse.jdt.bsp.ui";
-	public static final String LEGACY_PLUGIN_ID_V1 = "it.filippor.jdt.bsp.ui";
 
 	private static BspClientPlugin plugin;
 

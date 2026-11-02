@@ -37,6 +37,11 @@
             id="it.filippor.jdt.bsp.ui.commands.restartRoot"
             name="JDT BSP: Restart Root and Reload Projects">
       </command>
+      <command
+            categoryId="it.filippor.jdt.bsp.ui.commands.category"
+            id="it.filippor.jdt.bsp.ui.commands.showActionableTasks"
+            name="JDT BSP: Show Actionable Tasks">
+      </command>
    </extension>
 
    <extension
@@ -52,6 +57,10 @@
       <handler
             class="it.filippor.jdt.bsp.ui.ui.RestartBspRootProjectHandler"
             commandId="it.filippor.jdt.bsp.ui.commands.restartRoot">
+      </handler>
+      <handler
+            class="it.filippor.jdt.bsp.ui.ui.ShowBspActionableTasksViewHandler"
+            commandId="it.filippor.jdt.bsp.ui.commands.showActionableTasks">
       </handler>
    </extension>
 
@@ -70,6 +79,11 @@
             <command
                   commandId="it.filippor.jdt.bsp.ui.commands.stop"
                   label="Stop BSP Client"
+                  style="push">
+            </command>
+            <command
+                  commandId="it.filippor.jdt.bsp.ui.commands.showActionableTasks"
+                  label="Show BSP Actionable Tasks"
                   style="push">
             </command>
          </menu>
@@ -95,6 +109,21 @@
             </visibleWhen>
          </command>
       </menuContribution>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.views">
+      <category
+            id="it.filippor.jdt.bsp.ui.views.category"
+            name="JDT BSP">
+      </category>
+      <view
+            category="it.filippor.jdt.bsp.ui.views.category"
+            class="it.filippor.jdt.bsp.ui.ui.BspActionableTasksView"
+            id="it.filippor.jdt.bsp.ui.views.actionableTasks"
+            name="BSP Actionable Tasks"
+            restorable="true">
+      </view>
    </extension>
 
    <extension
@@ -142,9 +171,9 @@
       <navigatorContent
             activeByDefault="true"
             contentProvider="it.filippor.jdt.bsp.ui.ui.BspSourceSetContentProvider"
-            id="it.filippor.jdt.bsp.ui.navigator.sourceSets"
+            id="it.filippor.jdt.bsp.ui.navigator.buildTargets"
             labelProvider="it.filippor.jdt.bsp.ui.ui.BspSourceSetLabelProvider"
-            name="BSP Source Sets"
+            name="BSP Build Targets"
             priority="normal">
          <triggerPoints>
             <instanceof
@@ -171,7 +200,7 @@
             viewerId="org.eclipse.ui.navigator.ProjectExplorer">
          <includes>
             <contentExtension
-                  pattern="it.filippor.jdt.bsp.ui.navigator.sourceSets">
+                  pattern="it.filippor.jdt.bsp.ui.navigator.buildTargets">
             </contentExtension>
          </includes>
       </viewerContentBinding>
