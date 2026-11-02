@@ -136,23 +136,23 @@
       </wizard>
    </extension>
 
-   <extension
-         point="org.eclipse.ui.propertyPages">
-      <page
-            class="it.filippor.jdt.bsp.ui.ui.BspRootProjectPropertyPage"
-            id="it.filippor.jdt.bsp.ui.propertyPage.bspRoot"
-            name="BSP Root"
-            objectClass="org.eclipse.core.resources.IProject">
-         <enabledWhen>
-            <adapt type="org.eclipse.core.resources.IProject">
-               <test
-                     property="org.eclipse.core.resources.projectNature"
-                     value="it.filippor.jdt.bsp.core.bspRootNature">
-               </test>
-            </adapt>
-         </enabledWhen>
-      </page>
-   </extension>
+<extension point="org.eclipse.ui.propertyPages">
+   <page
+         class="it.filippor.jdt.bsp.ui.ui.BspRootProjectPropertyPage"
+         id="it.filippor.jdt.bsp.ui.propertyPage.bspRoot"
+         name="BSP Root">
+      <enabledWhen>
+         <adapt type="org.eclipse.core.resources.IProject">
+            <test
+                  property="org.eclipse.core.resources.projectNature"
+                  value="it.filippor.jdt.bsp.core.bspRootNature">
+            </test>
+         </adapt>
+      </enabledWhen>
+   </page>
+</extension>
+
+
 
    <extension
          point="org.eclipse.ui.decorators">

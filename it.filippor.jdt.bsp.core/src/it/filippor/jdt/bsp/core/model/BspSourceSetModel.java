@@ -12,5 +12,6 @@ public record BspSourceSetModel(String sourceSetId,
                                 List<IClasspathEntry> annotationProcessorClasspath,
                                 List<String> targetDependencies,
                                 Path outputFolder,
-                                String javaSourceLevel) {
+                                String javaSourceLevel,
+                                String javaEncoding) {
 }

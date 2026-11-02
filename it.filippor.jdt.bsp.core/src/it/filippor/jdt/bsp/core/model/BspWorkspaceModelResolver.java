@@ -59,6 +59,7 @@ public class BspWorkspaceModelResolver {
                 id,
                 sourceSetId);
             String javaSourceLevel = resolveJavaSourceLevel(server, id);
+            String javaEncoding = resolveJavaEncoding(server, id);
             List<String> targetDependencies = toDependencyIds(target.getDependencies());
             Path outputFolder = toLocalPathIfPossible(sourceSetId);
             models.add(new BspSourceSetModel(
@@ -69,7 +70,8 @@ public class BspWorkspaceModelResolver {
                 annotationProcessorClasspath,
                 targetDependencies,
                 outputFolder,
-                javaSourceLevel));
+                javaSourceLevel,
+                javaEncoding));
         }
         return models;
     }
@@ -84,6 +86,21 @@ public class BspWorkspaceModelResolver {
             String level = parseSourceLevelFromOptions(options);
             if (level != null) {
                 return level;
+            }
+        }
+        return null;
+    }
+
+    private String resolveJavaEncoding(BuildServer server, BuildTargetIdentifier id) {
+        Object javacResult = invokeExtendedRequest(server, id, "buildTargetJavacOptions");
+        if (javacResult == null) {
+            return null;
+        }
+        List<List<String>> optionSets = extractJavacOptionSets(javacResult);
+        for (List<String> options : optionSets) {
+            String encoding = parseEncodingFromOptions(options);
+            if (encoding != null) {
+                return encoding;
             }
         }
         return null;
@@ -346,6 +363,30 @@ public class BspWorkspaceModelResolver {
         return null;
     }
 
+    private static String parseEncodingFromOptions(List<String> options) {
+        if (options == null || options.isEmpty()) {
+            return null;
+        }
+        for (int i = 0; i < options.size(); i++) {
+            String option = options.get(i);
+            if (option == null || option.isBlank()) {
+                continue;
+            }
+            if (option.startsWith("-encoding=")) {
+                return normalizeEncoding(option.substring("-encoding=".length()));
+            }
+            if (option.startsWith("--encoding=")) {
+                return normalizeEncoding(option.substring("--encoding=".length()));
+            }
+            if ("-encoding".equals(option) || "--encoding".equals(option)) {
+                if (i + 1 < options.size()) {
+                    return normalizeEncoding(options.get(i + 1));
+                }
+            }
+        }
+        return null;
+    }
+
     private static String normalizeSourceLevel(String rawLevel) {
         if (rawLevel == null) {
             return null;
@@ -358,6 +399,14 @@ public class BspWorkspaceModelResolver {
             return "1.8";
         }
         return level;
+    }
+
+    private static String normalizeEncoding(String rawEncoding) {
+        if (rawEncoding == null) {
+            return null;
+        }
+        String encoding = rawEncoding.trim();
+        return encoding.isEmpty() ? null : encoding;
     }
 
     private static List<IClasspathEntry> extractClasspathEntries(Object result) {

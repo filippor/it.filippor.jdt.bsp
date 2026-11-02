@@ -1,7 +1,6 @@
 package it.filippor.jdt.bsp.core.model;
 
 import java.net.URI;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -10,8 +9,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import it.filippor.jdt.bsp.core.BspModuleProjectNature;
 import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
@@ -47,9 +44,6 @@ public class BspWorkspaceProjectSynchronizer {
     private static final String CORE_PLUGIN_ID = "it.filippor.jdt.bsp.core";
     private static final QualifiedName BSP_ROOT_FOLDER = new QualifiedName(BSP_META, "rootFolder");
     private static final QualifiedName BSP_COMMAND = new QualifiedName(BSP_META, "commandLine");
-    private static final Pattern PROJECT_DEP_PATTERN = Pattern
-                                                              .compile(
-                                                                  "project\\s*\\(\\s*(?:path\\s*:\\s*)?['\"](:[^'\"]+)['\"]\\s*\\)");
 
     public IProject ensureRootProject(String rootLabel, String commandLine, IProgressMonitor monitor)
         throws CoreException {
@@ -123,6 +117,7 @@ public class BspWorkspaceProjectSynchronizer {
                 IJavaProject javaProject = JavaCore.create(buildTargetProject);
                 this.classpathMapper.apply(javaProject, sourceSet, monitor);
                 applyJavaCompliance(javaProject, sourceSet.javaSourceLevel());
+                applyProjectEncoding(buildTargetProject, sourceSet.javaEncoding(), monitor);
                 SourceSetBinding binding = new SourceSetBinding(containerName, buildTargetName, sourceSet,
                     buildTargetProject, javaProject);
                 containerBindings.add(binding);
@@ -143,26 +138,6 @@ public class BspWorkspaceProjectSynchronizer {
         IProjectDescription description = rootProject.getDescription();
         description.setReferencedProjects(containerProjects.toArray(IProject[]::new));
         rootProject.setDescription(description, monitor);
-    }
-
-    private static void applyIntraModuleDependencies(List<SourceSetBinding> moduleBindings, IProgressMonitor monitor)
-        throws JavaModelException {
-        if (moduleBindings.isEmpty()) {
-            return;
-        }
-        Map<String, SourceSetBinding> bySourceSet = new HashMap<>();
-        for (SourceSetBinding binding : moduleBindings) {
-            bySourceSet.put(binding.sourceSetName(), binding);
-        }
-        SourceSetBinding main = bySourceSet.get("main");
-        if (main == null) {
-            return;
-        }
-        for (SourceSetBinding binding : moduleBindings) {
-            if (!"main".equals(binding.sourceSetName())) {
-                addProjectDependencies(binding.javaProject(), List.of(main.project()), monitor);
-            }
-        }
     }
 
     private static void applyBspTargetDependencies(String rootLabel, Map<String, SourceSetBinding> sourceSetById,
@@ -254,73 +229,7 @@ public class BspWorkspaceProjectSynchronizer {
         return sanitize(moduleName) + "::" + sanitize(sourceSetName);
     }
 
-    private static void applyGradleProjectDependencies(String rootLabel, Map<String, SourceSetBinding> sourceSetById,
-                                                       IProgressMonitor monitor) throws JavaModelException {
-        Map<String, SourceSetBinding> mainByModule = new HashMap<>();
-        Map<String, List<SourceSetBinding>> bindingsByModule = new HashMap<>();
-        for (SourceSetBinding binding : sourceSetById.values()) {
-            bindingsByModule.computeIfAbsent(binding.moduleName(), unused -> new ArrayList<>())
-                            .add(binding);
-            if ("main".equals(binding.sourceSetName())) {
-                mainByModule.put(binding.moduleName(), binding);
-            }
-        }
-        for (Map.Entry<String, List<SourceSetBinding>> entry : bindingsByModule.entrySet()) {
-            String moduleName = entry.getKey();
-            Set<IProject> deps = new LinkedHashSet<>();
-            for (String moduleDependency : readGradleProjectDependencies(rootLabel, moduleName)) {
-                SourceSetBinding dep = resolveMainModuleBinding(mainByModule, moduleDependency);
-                if (dep != null) {
-                    deps.add(dep.project());
-                }
-            }
-            if (!deps.isEmpty()) {
-                for (SourceSetBinding binding : entry.getValue()) {
-                    List<IProject> filtered = new ArrayList<>(deps);
-                    filtered.remove(binding.project());
-                    if (!filtered.isEmpty()) {
-                        addProjectDependencies(binding.javaProject(), filtered, monitor);
-                    }
-                }
-            }
-        }
-    }
-
-    private static List<String> readGradleProjectDependencies(String rootLabel, String moduleName) {
-        java.nio.file.Path root = java.nio.file.Path.of(rootLabel);
-        java.nio.file.Path moduleDir = root;
-        String normalizedModuleName = normalizeModulePath(moduleName);
-        if (!"root".equals(normalizedModuleName)) {
-            for (String segment : normalizedModuleName.split("/")) {
-                if (!segment.isBlank()) {
-                    moduleDir = moduleDir.resolve(segment);
-                }
-            }
-        }
-        List<String> deps = new ArrayList<>();
-        collectDependencies(moduleDir.resolve("build.gradle"), deps);
-        collectDependencies(moduleDir.resolve("build.gradle.kts"), deps);
-        return deps;
-    }
-
-    private static void collectDependencies(java.nio.file.Path buildFile, List<String> out) {
-        if (buildFile == null || !Files.isRegularFile(buildFile)) {
-            return;
-        }
-        try {
-            String content = Files.readString(buildFile);
-            Matcher matcher = PROJECT_DEP_PATTERN.matcher(content);
-            while (matcher.find()) {
-                String gradlePath = matcher.group(1);
-                String normalized = normalizeModulePath(gradlePath);
-                if (!normalized.isBlank()) {
-                    out.add(normalized);
-                }
-            }
-        } catch (Exception e) {
-            // Best effort dependency extraction.
-        }
-    }
+   
 
     private static void addProjectDependencies(IJavaProject project, List<IProject> dependencies,
                                                IProgressMonitor monitor)
@@ -377,6 +286,22 @@ public class BspWorkspaceProjectSynchronizer {
         JavaCore.setComplianceOptions(javaSourceLevel, options);
         options.put(JavaCore.COMPILER_RELEASE, JavaCore.ENABLED);
         javaProject.setOptions(options);
+    }
+
+    private static void applyProjectEncoding(IProject project, String javaEncoding, IProgressMonitor monitor) {
+        if (project == null || javaEncoding == null || javaEncoding.isBlank()) {
+            return;
+        }
+        try {
+            String explicit = project.getDefaultCharset(false);
+            if (explicit == null || !javaEncoding.equalsIgnoreCase(explicit)) {
+                project.setDefaultCharset(javaEncoding, monitor);
+            }
+        } catch (Exception e) {
+            log(IStatus.WARNING,
+                "Failed to apply source encoding '" + javaEncoding + "' for project '" + project.getName() + "'.",
+                e);
+        }
     }
 
     private record SourceSetBinding(String moduleName,
@@ -616,58 +541,6 @@ public class BspWorkspaceProjectSynchronizer {
             // Fall back to root.
         }
         return "root";
-    }
-
-    private static SourceSetBinding resolveMainModuleBinding(Map<String, SourceSetBinding> mainByModule,
-                                                             String moduleDependency) {
-        String normalizedDependency = normalizeModulePath(moduleDependency);
-        SourceSetBinding exact = mainByModule.get(normalizedDependency);
-        if (exact != null) {
-            return exact;
-        }
-        if ("root".equals(normalizedDependency)) {
-            return mainByModule.get("root");
-        }
-        List<SourceSetBinding> candidates = new ArrayList<>();
-        for (Map.Entry<String, SourceSetBinding> entry : mainByModule.entrySet()) {
-            String key = normalizeModulePath(entry.getKey());
-            if (key.equals(normalizedDependency) || key.endsWith("/" + normalizedDependency)
-                || moduleLeaf(key).equals(moduleLeaf(normalizedDependency))) {
-                candidates.add(entry.getValue());
-            }
-        }
-        return candidates.size() == 1 ? candidates.get(0) : null;
-    }
-
-    private static String normalizeModulePath(String modulePath) {
-        if (modulePath == null) {
-            return "";
-        }
-        String normalized = modulePath.trim()
-                                      .replace('\\', '/');
-        if (":".equals(normalized)) {
-            return "root";
-        }
-        while (normalized.startsWith(":")) {
-            normalized = normalized.substring(1);
-        }
-        while (normalized.endsWith(":")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        normalized = normalized.replace(':', '/');
-        while (normalized.startsWith("/")) {
-            normalized = normalized.substring(1);
-        }
-        while (normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        return normalized.isBlank() ? "root" : normalized;
-    }
-
-    private static String moduleLeaf(String modulePath) {
-        String normalized = normalizeModulePath(modulePath);
-        int idx = normalized.lastIndexOf('/');
-        return idx < 0 ? normalized : normalized.substring(idx + 1);
     }
 
     private static String extractFolderName(String rootLabel) {
