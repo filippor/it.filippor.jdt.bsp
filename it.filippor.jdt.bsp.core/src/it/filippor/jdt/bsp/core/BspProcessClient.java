@@ -470,7 +470,7 @@ public class BspProcessClient {
 		}
 		BuildTargetIdentifier target = new BuildTargetIdentifier(buildTargetId);
 		return switch (task == null ? "" : task.trim().toLowerCase()) {
-			case "compile", "package" -> executeCompile(target, debug, cancelRequested);
+			case "compile" -> executeCompile(target, debug, cancelRequested);
 			case "test" -> executeTest(target, debug, cancelRequested);
 			case "run" -> executeRun(target, debug, cancelRequested);
 			default -> throw new IllegalArgumentException("Unsupported task: " + task);

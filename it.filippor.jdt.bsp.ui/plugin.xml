@@ -184,12 +184,6 @@
             <instanceof
                   value="org.eclipse.core.resources.IProject">
             </instanceof>
-            <instanceof
-                  value="it.filippor.jdt.bsp.ui.ui.BspSourceSetsExplorerNode">
-            </instanceof>
-            <instanceof
-                  value="it.filippor.jdt.bsp.ui.ui.BspSourceSetExplorerNode">
-            </instanceof>
          </possibleChildren>
       </navigatorContent>
    </extension>

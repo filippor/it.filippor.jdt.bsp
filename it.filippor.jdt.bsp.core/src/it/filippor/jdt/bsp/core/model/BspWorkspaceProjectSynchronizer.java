@@ -498,11 +498,6 @@ public class BspWorkspaceProjectSynchronizer {
 		return truncateWithHash(child, 110);
 	}
 
-	private static String toBuildTargetProjectName(String rootProjectName, String containerName, String buildTargetName) {
-		String child = rootProjectName + ".target." + sanitize(containerName) + "." + sanitize(buildTargetName);
-		return truncateWithHash(child, 120);
-	}
-
 	private static String extractModuleName(String rootLabel, String sourceSetId) {
 		if (sourceSetId == null || sourceSetId.isBlank()) {
 			return "root";

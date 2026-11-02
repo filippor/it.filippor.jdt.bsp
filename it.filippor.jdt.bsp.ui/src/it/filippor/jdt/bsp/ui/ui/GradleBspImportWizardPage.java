@@ -204,12 +204,6 @@ class GradleBspImportWizardPage extends WizardPage {
 		this.commandLineText.setText("<embedded-gradle-bsp:system>");
 	}
 
-	private static String quote(String value) {
-		if (value.indexOf(' ') >= 0 && !value.startsWith("\"")) {
-			return '"' + value + '"';
-		}
-		return value;
-	}
 
 	private static String defaultWrapperCommand() {
 		return WINDOWS_HOST ? "cmd /c gradlew.bat bsp" : "./gradlew bsp";

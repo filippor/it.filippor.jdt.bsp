@@ -22,6 +22,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
@@ -89,7 +90,7 @@ public final class BspClientManager {
 				RootStartProbe probe = new RootStartProbe(rootLabel);
 				probes.add(probe);
 				try {
-					IProject rootProject = this.synchronizer.ensureRootProject(rootLabel, commandLineForRoot, monitor);
+					this.synchronizer.ensureRootProject(rootLabel, commandLineForRoot, monitor);
 					BspClientPlugin.logInfo("BSP root project ensured for: " + rootLabel);
 					startClient(bspClient, config, rootLabel,
 							message -> logInfo(rootLabel, "BSP[" + rootLabel + "] <- " + summarize(message)),
@@ -367,6 +368,20 @@ public final class BspClientManager {
 		return parent.toString();
 	}
 	public List<BspActionableTaskItem> listActionableTasks() {
+		List<BspActionableTaskItem> tasks = collectActionableTasks();
+		if (!tasks.isEmpty() || !this.clients.isEmpty()) {
+			return tasks;
+		}
+
+		// Allow task view refresh to work without requiring a manual workspace/project refresh.
+		IStatus startupStatus = runStartJob(new NullProgressMonitor());
+		if (startupStatus.getSeverity() == IStatus.ERROR) {
+			BspClientPlugin.logInfo("BSP task discovery startup failed: " + startupStatus.getMessage());
+		}
+		return collectActionableTasks();
+	}
+
+	private List<BspActionableTaskItem> collectActionableTasks() {
 		List<BspActionableTaskItem> tasks = new ArrayList<>();
 		for (Map.Entry<Path, BspProcessClient> entry : new ArrayList<>(this.clients.entrySet())) {
 			String root = entry.getKey().toString();

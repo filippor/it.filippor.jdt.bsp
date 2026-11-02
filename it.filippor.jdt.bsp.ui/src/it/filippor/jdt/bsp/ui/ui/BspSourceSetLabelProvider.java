@@ -12,12 +12,6 @@ public class BspSourceSetLabelProvider extends LabelProvider implements ICommonL
 
 	@Override
 	public String getText(Object element) {
-		if (element instanceof BspSourceSetsExplorerNode) {
-			return "Build Targets";
-		}
-		if (element instanceof BspSourceSetExplorerNode node) {
-			return node.label();
-		}
 		if (element instanceof IProject project && isSourceSetProject(project)) {
 			String name = project.getName();
 			int marker = name.lastIndexOf('.');
@@ -43,12 +37,6 @@ public class BspSourceSetLabelProvider extends LabelProvider implements ICommonL
 
 	@Override
 	public String getDescription(Object anElement) {
-		if (anElement instanceof BspSourceSetsExplorerNode container) {
-			return container.moduleProject().getName();
-		}
-		if (anElement instanceof BspSourceSetExplorerNode node) {
-			return node.sourceSetProject().getName();
-		}
 		if (anElement instanceof IProject project && isSourceSetProject(project)) {
 			return project.getName();
 		}

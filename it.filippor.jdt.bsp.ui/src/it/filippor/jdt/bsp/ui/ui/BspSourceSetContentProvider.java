@@ -22,14 +22,15 @@ public class BspSourceSetContentProvider implements ICommonContentProvider {
 	@Override
 	public Object[] getChildren(Object parentElement) {
 		if (parentElement instanceof IProject moduleProject) {
-			return moduleHasSourceSets(moduleProject)
-					? new Object[] { new BspSourceSetsExplorerNode(moduleProject) }
-					: new Object[0];
+			return buildTargetChildren(moduleProject);
 		}
-		if (!(parentElement instanceof BspSourceSetsExplorerNode container)) {
+		return new Object[0];
+	}
+
+	private static Object[] buildTargetChildren(IProject moduleProject) {
+		if (!moduleHasSourceSets(moduleProject)) {
 			return new Object[0];
 		}
-		IProject moduleProject = container.moduleProject();
 		List<IProject> nodes = new ArrayList<>();
 		for (IProject candidate : referencedProjects(moduleProject)) {
 			if (!candidate.exists() || !candidate.isOpen()) {
@@ -46,14 +47,8 @@ public class BspSourceSetContentProvider implements ICommonContentProvider {
 
 	@Override
 	public Object getParent(Object element) {
-		if (element instanceof BspSourceSetsExplorerNode container) {
-			return container.moduleProject();
-		}
 		if (element instanceof IProject sourceSetProject && isSourceSetProject(sourceSetProject)) {
-			IProject module = findModuleProject(sourceSetProject);
-			if (module != null) {
-				return new BspSourceSetsExplorerNode(module);
-			}
+			return findModuleProject(sourceSetProject);
 		}
 		return null;
 	}

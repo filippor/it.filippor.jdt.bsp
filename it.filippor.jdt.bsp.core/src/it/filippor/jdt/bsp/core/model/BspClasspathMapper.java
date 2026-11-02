@@ -26,7 +26,6 @@ public class BspClasspathMapper {
 	public void apply(IJavaProject project, BspSourceSetModel model, IProgressMonitor monitor)
 			throws JavaModelException, CoreException {
 		List<IClasspathEntry> entries = new ArrayList<>();
-		entries.add(JavaCore.newContainerEntry(Path.fromPortableString("org.eclipse.jdt.launching.JRE_CONTAINER")));
 
 		Set<String> usedSourceNames = new HashSet<>();
 		for (java.nio.file.Path sourceRoot : computeNonNestedSourceRoots(model.sources())) {
@@ -41,6 +40,7 @@ public class BspClasspathMapper {
 				entries.add(libraryEntry);
 			}
 		}
+		entries.add(JavaCore.newContainerEntry(Path.fromPortableString("org.eclipse.jdt.launching.JRE_CONTAINER")));
 		dropBroadSourceSetLinks(project, entries, usedSourceNames, monitor);
 		cleanupStaleLinkedSourceFolders(project, usedSourceNames, monitor);
 
@@ -170,13 +170,16 @@ public class BspClasspathMapper {
 			return;
 		}
 		for (IResource child : sourcesRoot.members()) {
-			if (!(child instanceof IFolder folder) || !folder.isLinked()) {
+			if (!(child instanceof IFolder folder)) {
 				continue;
 			}
 			String key = folder.getProjectRelativePath().toString().replace('\\', '/');
 			if (!usedSourceNames.contains(key)) {
 				folder.delete(IResource.FORCE, monitor);
 			}
+		}
+		if (sourcesRoot.exists() && sourcesRoot.members().length == 0) {
+			sourcesRoot.delete(IResource.FORCE, monitor);
 		}
 	}
 
@@ -225,10 +228,13 @@ public class BspClasspathMapper {
 			return null;
 		}
 		String normalized = projectRelativePath.replace('\\', '/');
-		if (!normalized.startsWith("sources/")) {
-			return null;
+		if (normalized.startsWith("sources/")) {
+			return normalized.substring("sources/".length());
 		}
-		return normalized.substring("sources/".length());
+		if (normalized.indexOf('/') < 0) {
+			return normalized;
+		}
+		return null;
 	}
 
 	private static String toProjectRelativePath(IJavaProject project, IPath fullPath) {
@@ -268,11 +274,11 @@ public class BspClasspathMapper {
 		int srcIndex = parts.lastIndexOf("src");
 		String candidate;
 		if (srcIndex >= 0 && srcIndex + 2 < parts.size()) {
-			candidate = "sources/" + sanitize(parts.get(srcIndex + 1) + "-" + parts.get(srcIndex + 2));
+			candidate = sanitize(parts.get(srcIndex + 1) + "-" + parts.get(srcIndex + 2));
 		} else if (!parts.isEmpty()) {
-			candidate = "sources/" + sanitize(parts.get(parts.size() - 1));
+			candidate = sanitize(parts.get(parts.size() - 1));
 		} else {
-			candidate = "sources/linked";
+			candidate = "linked";
 		}
 		String unique = candidate;
 		int counter = 1;
