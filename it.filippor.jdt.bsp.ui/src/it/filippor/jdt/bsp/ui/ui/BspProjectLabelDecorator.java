@@ -20,11 +20,11 @@ public class BspProjectLabelDecorator extends LabelProvider implements ILabelDec
 			return null;
 		}
 		try {
-			if (project.hasNature(BspModuleProjectNature.NATURE_ID)) {
+			if (isModuleProject(project)) {
 				String shortName = moduleDisplayName(project, text);
 				return shortName.equals(text) ? null : shortName;
 			}
-			if (project.hasNature(BspSourceSetProjectNature.NATURE_ID)) {
+			if (isSourceSetProject(project)) {
 				String shortName = sourceSetDisplayName(project, text);
 				return shortName.equals(text) ? null : shortName;
 			}
@@ -47,14 +47,10 @@ public class BspProjectLabelDecorator extends LabelProvider implements ILabelDec
 		}
 		String persisted = preferenceValue(project, BspRootProjectNature.KEY_CONTAINER_NAME);
 		if (persisted == null || persisted.isBlank()) {
-			persisted = persistentProperty(project, BspRootProjectNature.PROPERTY_CONTAINER_NAME);
+			return originalText;
 		}
-		String base = persisted != null && !persisted.isBlank()
-				? persisted
-				: project.getLocation() != null && project.getLocation().lastSegment() != null
-						? project.getLocation().lastSegment()
-						: project.getName();
-		return base + suffix;
+		String display = shortWithParent(persisted);
+		return display + suffix;
 	}
 
 	private static String sourceSetDisplayName(IProject project, String originalText) {
@@ -65,12 +61,47 @@ public class BspProjectLabelDecorator extends LabelProvider implements ILabelDec
 		}
 		String persisted = preferenceValue(project, BspRootProjectNature.KEY_BUILD_TARGET_NAME);
 		if (persisted == null || persisted.isBlank()) {
-			persisted = persistentProperty(project, BspRootProjectNature.PROPERTY_BUILD_TARGET_NAME);
+			return originalText;
 		}
-		String name = persisted != null && !persisted.isBlank() ? persisted : project.getName();
-		int marker = name.lastIndexOf('.');
-		String base = marker >= 0 && marker + 1 < name.length() ? name.substring(marker + 1) : name;
-		return base + suffix;
+		String display = shortWithParent(persisted);
+		return display + suffix;
+	}
+
+	private static String shortWithParent(String value) {
+		if (value == null || value.isBlank()) {
+			return value;
+		}
+		int marker = value.lastIndexOf(':');
+		if (marker <= 0 || marker + 1 >= value.length()) {
+			return value;
+		}
+		String base = value.substring(marker + 1);
+		String parent = value.substring(0, marker);
+		return parent.isBlank() ? base : base + " (" + parent + ")";
+	}
+
+	private static boolean isModuleProject(IProject project) {
+		try {
+			if (project.hasNature(BspModuleProjectNature.NATURE_ID)) {
+				return true;
+			}
+		} catch (CoreException e) {
+			// Fallback below.
+		}
+		String logical = preferenceValue(project, BspRootProjectNature.KEY_CONTAINER_NAME);
+		return logical != null && logical.indexOf(':') > 0;
+	}
+
+	private static boolean isSourceSetProject(IProject project) {
+		try {
+			if (project.hasNature(BspSourceSetProjectNature.NATURE_ID)) {
+				return true;
+			}
+		} catch (CoreException e) {
+			// Fallback below.
+		}
+		String logical = preferenceValue(project, BspRootProjectNature.KEY_BUILD_TARGET_NAME);
+		return logical != null && logical.chars().filter(ch -> ch == ':').count() >= 2;
 	}
 
 	private static String preferenceValue(IProject project, String key) {
@@ -78,14 +109,6 @@ public class BspProjectLabelDecorator extends LabelProvider implements ILabelDec
 			Preferences node = new ProjectScope(project).getNode(BspRootProjectNature.SETTINGS_NODE);
 			return node.get(key, null);
 		} catch (Exception e) {
-			return null;
-		}
-	}
-
-	private static String persistentProperty(IProject project, org.eclipse.core.runtime.QualifiedName key) {
-		try {
-			return project.getPersistentProperty(key);
-		} catch (CoreException e) {
 			return null;
 		}
 	}

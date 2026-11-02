@@ -73,6 +73,7 @@ public class BspWorkspaceProjectSynchronizer {
                                              .getRoot();
         IProject rootProject = ensureRootProject(rootLabel, commandLine, monitor);
         String rootProjectName = rootProject.getName();
+        String rootLogicalName = extractFolderName(rootLabel);
         Map<String, List<BspSourceSetModel>> sourceSetsByModule = groupByModule(rootLabel, sourceSets);
         Map<String, SourceSetBinding> sourceSetById = new HashMap<>();
 
@@ -83,7 +84,8 @@ public class BspWorkspaceProjectSynchronizer {
             String containerProjectName = toModuleProjectName(rootProjectName, containerName);
             IProject containerProject = root.getProject(containerProjectName);
             ensureProject(containerProject, Path.fromOSString(containerLocation.toString()), false, monitor);
-            setProjectProperty(containerProject, BspRootProjectNature.PROPERTY_CONTAINER_NAME, containerName);
+            String logicalModuleName = toLogicalModuleName(rootLogicalName, containerName);
+            setProjectProperty(containerProject, BspRootProjectNature.PROPERTY_CONTAINER_NAME, logicalModuleName);
             try {
                 ensureBspModuleNature(containerProject, monitor);
             } catch (CoreException e) {
@@ -96,15 +98,17 @@ public class BspWorkspaceProjectSynchronizer {
             List<IProject> buildTargetProjects = new ArrayList<>();
             List<SourceSetBinding> containerBindings = new ArrayList<>();
             for (BspSourceSetModel sourceSet : entry.getValue()) {
-                String buildTargetName = extractSourceSetName(sourceSet.sourceSetId());
+                String buildTargetName = normalizeSourceSetName(containerName,
+                    extractSourceSetName(sourceSet.sourceSetId()));
                 String buildTargetProjectName = toSourceSetProjectName(containerProjectName, buildTargetName);
                 IProject buildTargetProject = root.getProject(buildTargetProjectName);
                 java.nio.file.Path buildTargetLocation = containerLocation.resolve(".bsp")
                                                                           .resolve("targets")
                                                                           .resolve(sanitize(buildTargetName));
                 ensureProject(buildTargetProject, Path.fromOSString(buildTargetLocation.toString()), false, monitor);
+                String logicalTargetName = toLogicalTargetName(rootLogicalName, containerName, buildTargetName);
                 setProjectProperty(buildTargetProject, BspRootProjectNature.PROPERTY_BUILD_TARGET_NAME,
-                    buildTargetName);
+                    logicalTargetName);
                 try {
                     ensureBspSourceSetNature(buildTargetProject, monitor);
                 } catch (CoreException e) {
@@ -469,12 +473,6 @@ public class BspWorkspaceProjectSynchronizer {
 
     private static void setProjectProperty(IProject project, QualifiedName key, String value) {
         try {
-            project.setPersistentProperty(key, value == null ? "" : value);
-        } catch (CoreException e) {
-            // Best effort metadata.
-        }
-        // Mirror into .settings so values are visible in project-scoped preference files.
-        try {
             Preferences node = new ProjectScope(project).getNode(BspRootProjectNature.SETTINGS_NODE);
             if (BspRootProjectNature.PROPERTY_CONTAINER_NAME.equals(key)) {
                 node.put(BspRootProjectNature.KEY_CONTAINER_NAME, value == null ? "" : value);
@@ -493,13 +491,30 @@ public class BspWorkspaceProjectSynchronizer {
     }
 
     private static String toModuleProjectName(String rootProjectName, String moduleName) {
-        String child = rootProjectName + ".container." + sanitize(moduleName);
+        String moduleSegment = moduleName == null || moduleName.isBlank() ? "root" : moduleName.replace('/', ':');
+        String child = rootProjectName + ":" + sanitizeProjectName(moduleSegment);
         return truncateWithHash(child, 100);
     }
 
     private static String toSourceSetProjectName(String moduleProjectName, String sourceSetName) {
-        String child = moduleProjectName + ".target." + sanitize(sourceSetName);
+        String child = moduleProjectName + ":" + sanitizeProjectName(sourceSetName);
         return truncateWithHash(child, 110);
+    }
+
+    private static String toLogicalModuleName(String rootName, String moduleName) {
+        String root = (rootName == null || rootName.isBlank()) ? "root" : rootName;
+        if (moduleName == null || moduleName.isBlank() || "root".equals(moduleName)) {
+            return root;
+        }
+        return root + ":" + moduleName.replace('/', ':');
+    }
+
+    private static String toLogicalTargetName(String rootName, String moduleName, String sourceSetName) {
+        String moduleLogicalName = toLogicalModuleName(rootName, moduleName);
+        if (sourceSetName == null || sourceSetName.isBlank()) {
+            return moduleLogicalName;
+        }
+        return moduleLogicalName + ":" + sourceSetName;
     }
 
     private static String extractModuleName(String rootLabel, String sourceSetId) {
@@ -592,6 +607,21 @@ public class BspWorkspaceProjectSynchronizer {
         return sourceSetId;
     }
 
+    private static String normalizeSourceSetName(String moduleName, String sourceSetName) {
+        if (moduleName == null) {
+            moduleName = "";
+        }
+        if (sourceSetName == null || sourceSetName.isBlank()) {
+            return "unknown";
+        }
+        String candidate = sourceSetName;
+        int colon = candidate.lastIndexOf(':');
+        if (colon >= 0 && colon + 1 < candidate.length()) {
+            candidate = candidate.substring(colon + 1);
+        }
+        return candidate;
+    }
+
     private static java.nio.file.Path resolveModuleLocation(String rootLabel, String moduleName) {
         java.nio.file.Path rootPath = java.nio.file.Path.of(rootLabel);
         if ("root".equals(moduleName)) {
@@ -612,6 +642,14 @@ public class BspWorkspaceProjectSynchronizer {
             candidate = "bsp_project";
         }
         return candidate;
+    }
+
+    private static String sanitizeProjectName(String text) {
+        if (text == null || text.isBlank()) {
+            return "bsp_project";
+        }
+        String candidate = text.replaceAll("[^A-Za-z0-9._:-]", "_");
+        return candidate.isBlank() ? "bsp_project" : candidate;
     }
 
     private static String truncate(String value, int max) {

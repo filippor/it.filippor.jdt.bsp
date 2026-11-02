@@ -19,7 +19,7 @@ public final class BspProjectSettingsStore {
         return new ProjectScope(project).getNode(BspRootProjectNature.SETTINGS_NODE);
     }
 
-    private static String readWithLegacyFallback(IProject project, String key, String fallback) {
+    private static String readSetting(IProject project, String key, String fallback) {
         Preferences current = node(project);
         String defaultValue = fallback == null ? "" : fallback;
         return current.get(key, defaultValue);
@@ -27,7 +27,7 @@ public final class BspProjectSettingsStore {
 
     public static String readCommandLine(IProject project, String defaultCommandLine) {
         String fallback = defaultCommandLine == null ? "" : defaultCommandLine;
-        String value = readWithLegacyFallback(project, BspRootProjectNature.KEY_BSP_COMMAND_LINE, fallback);
+        String value = readSetting(project, BspRootProjectNature.KEY_BSP_COMMAND_LINE, fallback);
         return value == null ? fallback : value;
     }
 

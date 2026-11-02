@@ -115,14 +115,26 @@ public class BspSourceSetContentProvider implements ICommonContentProvider {
 		if (hasNature(project, BspModuleProjectNature.NATURE_ID)) {
 			return true;
 		}
-		return project.getName().contains(".container.");
+		String logical = persistedValue(project, BspRootProjectNature.KEY_CONTAINER_NAME);
+		return logical != null && logical.indexOf(':') > 0;
 	}
 
 	private static boolean isSourceSetProject(IProject project) {
 		if (hasNature(project, BspSourceSetProjectNature.NATURE_ID)) {
 			return true;
 		}
-		return project.getName().contains(".target.");
+		String logical = persistedValue(project, BspRootProjectNature.KEY_BUILD_TARGET_NAME);
+		return logical != null && logical.chars().filter(ch -> ch == ':').count() >= 2;
+	}
+
+	private static String persistedValue(IProject project, String preferenceKey) {
+		try {
+			Preferences node = new ProjectScope(project).getNode(BspRootProjectNature.SETTINGS_NODE);
+			String value = node.get(preferenceKey, null);
+			return (value == null || value.isBlank()) ? null : value;
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	private static IProject[] referencedProjects(IProject project) {
@@ -134,24 +146,14 @@ public class BspSourceSetContentProvider implements ICommonContentProvider {
 	}
 
 	private static String sourceSetLabel(IProject sourceSetProject) {
-		try {
-			Preferences node = new ProjectScope(sourceSetProject).getNode(BspRootProjectNature.SETTINGS_NODE);
-			String persisted = node.get(BspRootProjectNature.KEY_BUILD_TARGET_NAME, null);
-			if ((persisted == null || persisted.isBlank())) {
-				persisted = sourceSetProject.getPersistentProperty(BspRootProjectNature.PROPERTY_BUILD_TARGET_NAME);
-			}
-			if (persisted != null && !persisted.isBlank()) {
-				return persisted;
-			}
-		} catch (CoreException e) {
-			// fallback below
+		String persisted = persistedValue(sourceSetProject, BspRootProjectNature.KEY_BUILD_TARGET_NAME);
+		if (persisted != null && !persisted.isBlank()) {
+			return persisted;
 		}
 		if (sourceSetProject.getLocation() != null && sourceSetProject.getLocation().lastSegment() != null) {
 			return sourceSetProject.getLocation().lastSegment();
 		}
-		String name = sourceSetProject.getName();
-		int marker = name.lastIndexOf(".target.");
-		return marker >= 0 ? name.substring(marker + ".target.".length()) : name;
+		return sourceSetProject.getName();
 	}
 
 	private static IProject findModuleProject(IProject sourceSetProject) {
