@@ -1,7 +1,7 @@
 package it.filippor.jdt.bsp.ui;
 
-import java.io.IOException;
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,11 +11,21 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import it.filippor.jdt.bsp.core.BspConnectionConfig;
+import it.filippor.jdt.bsp.core.BspProcessClient;
+import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
+import it.filippor.jdt.bsp.core.BspRootProjectNature;
+import it.filippor.jdt.bsp.core.model.BspBuildTargetActionModel;
+import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
+import it.filippor.jdt.bsp.core.model.BspWorkspaceProjectSynchronizer;
+import org.osgi.framework.Bundle;
+
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -26,15 +36,6 @@ import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
-import org.osgi.framework.Bundle;
-
-import it.filippor.jdt.bsp.core.BspConnectionConfig;
-import it.filippor.jdt.bsp.core.BspProcessClient;
-import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
-import it.filippor.jdt.bsp.core.BspRootProjectNature;
-import it.filippor.jdt.bsp.core.model.BspBuildTargetActionModel;
-import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
-import it.filippor.jdt.bsp.core.model.BspWorkspaceProjectSynchronizer;
 
 public final class BspClientManager {
 
@@ -196,10 +197,7 @@ public final class BspClientManager {
 	}
 
 	private BspConnectionConfig tryWrapperFallback(BspConnectionConfig config, IOException failure) {
-		if (failure.getMessage() == null || !failure.getMessage().contains("CreateProcess error=2")) {
-			return null;
-		}
-		if (config.command().isEmpty() || !"gradle".equals(config.command().get(0))) {
+		if (failure.getMessage() == null || !failure.getMessage().contains("CreateProcess error=2") || config.command().isEmpty() || !"gradle".equals(config.command().get(0))) {
 			return null;
 		}
 		Path wrapper = config.workingDirectory().resolve("gradlew.bat");
@@ -286,13 +284,7 @@ public final class BspClientManager {
 		}
 		for (IProject project : ResourcesPlugin.getWorkspace().getRoot().getProjects()) {
 			try {
-				if (!project.exists() || !project.isOpen()) {
-					continue;
-				}
-				if (!project.hasNature(BspRootProjectNature.NATURE_ID)) {
-					continue;
-				}
-				if (project.getLocation() == null) {
+				if (!project.exists() || !project.isOpen() || !project.hasNature(BspRootProjectNature.NATURE_ID) || (project.getLocation() == null)) {
 					continue;
 				}
 				Path rootPath = Path.of(project.getLocation().toOSString());

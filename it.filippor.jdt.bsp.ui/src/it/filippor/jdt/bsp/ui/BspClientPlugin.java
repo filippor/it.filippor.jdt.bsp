@@ -1,9 +1,10 @@
 package it.filippor.jdt.bsp.ui;
 
+import org.osgi.framework.BundleContext;
+
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
-import org.osgi.framework.BundleContext;
 
 public class BspClientPlugin extends AbstractUIPlugin {
 

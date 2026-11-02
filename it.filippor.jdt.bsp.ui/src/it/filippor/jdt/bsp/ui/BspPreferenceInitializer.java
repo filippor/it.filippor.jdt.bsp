@@ -1,8 +1,9 @@
 package it.filippor.jdt.bsp.ui;
 
+import org.osgi.service.prefs.Preferences;
+
 import org.eclipse.core.runtime.preferences.AbstractPreferenceInitializer;
 import org.eclipse.core.runtime.preferences.DefaultScope;
-import org.osgi.service.prefs.Preferences;
 
 public class BspPreferenceInitializer extends AbstractPreferenceInitializer {
 

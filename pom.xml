@@ -12,8 +12,8 @@
   <modules>
     <module>it.filippor.jdt.bsp.core</module>
     <module>it.filippor.jdt.bsp.ui</module>
-    <module>org.eclipse.jdt.bsp.feature</module>
-    <module>org.eclipse.jdt.bsp.repository</module>
+    <module>it.filippor.jdt.bsp.feature</module>
+    <module>it.filippor.jdt.bsp.repository</module>
   </modules>
 
   <properties>

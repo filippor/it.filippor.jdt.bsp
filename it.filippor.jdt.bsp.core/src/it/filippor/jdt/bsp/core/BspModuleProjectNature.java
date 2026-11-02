@@ -6,27 +6,27 @@ import org.eclipse.core.runtime.CoreException;
 
 public class BspModuleProjectNature implements IProjectNature {
 
-	public static final String NATURE_ID = "it.filippor.jdt.bsp.core.bspContainerNature";
+    public static final String NATURE_ID = "it.filippor.jdt.bsp.core.bspContainerNature";
 
-	private IProject project;
+    private IProject project;
 
-	@Override
-	public void configure() throws CoreException {
-		// Nature marker only; sync/configuration is handled by core services.
-	}
+    @Override
+    public void configure() throws CoreException {
+        // Nature marker only; sync/configuration is handled by core services.
+    }
 
-	@Override
-	public void deconfigure() throws CoreException {
-		// No teardown required.
-	}
+    @Override
+    public void deconfigure() throws CoreException {
+        // No teardown required.
+    }
 
-	@Override
-	public IProject getProject() {
-		return project;
-	}
+    @Override
+    public IProject getProject() {
+        return project;
+    }
 
-	@Override
-	public void setProject(IProject project) {
-		this.project = project;
-	}
+    @Override
+    public void setProject(IProject project) {
+        this.project = project;
+    }
 }
