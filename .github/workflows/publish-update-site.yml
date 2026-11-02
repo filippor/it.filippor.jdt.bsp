@@ -32,6 +32,11 @@ jobs:
           java-version: "21"
           cache: maven
 
+      - name: Set up Maven
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: "3.9.11"
+
       - name: Build Tycho repository
         run: mvn -B -ntp -Pbuild-individual-bundles clean package
 
