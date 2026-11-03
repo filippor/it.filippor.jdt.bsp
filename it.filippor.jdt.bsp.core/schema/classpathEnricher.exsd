@@ -25,10 +25,10 @@
          <attribute name="class" type="string" use="required">
             <annotation>
                <documentation>
-                  Implementation of it.filippor.jdt.bsp.core.model.BspClasspathEnricher.
+                  Implementation of it.filippor.jdt.bsp.core.extensions.BspClasspathEnricher.
                </documentation>
                <appInfo>
-                  <meta.attribute kind="java" basedOn=":it.filippor.jdt.bsp.core.model.BspClasspathEnricher"/>
+                  <meta.attribute kind="java" basedOn=":it.filippor.jdt.bsp.core.extensions.BspClasspathEnricher"/>
                </appInfo>
             </annotation>
          </attribute>

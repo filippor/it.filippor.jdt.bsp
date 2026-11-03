@@ -19,11 +19,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import it.filippor.jdt.bsp.core.internal.BspWorkspaceProjectSynchronizer;
 import it.filippor.jdt.bsp.core.model.BspActionableTaskItem;
 import it.filippor.jdt.bsp.core.model.BspBuildTargetActionModel;
 import it.filippor.jdt.bsp.core.model.BspConnectionConfig;
 import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
 import it.filippor.jdt.bsp.core.nature.BspRootProjectNature;
+import it.filippor.jdt.bsp.core.protocol.BspProcessClient;
 
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
@@ -102,7 +104,7 @@ public final class BspClientManager {
                 RootStartProbe probe = new RootStartProbe(rootLabel);
                 probes.add(probe);
                 try {
-                    this.synchronizer.ensureRootProject(rootLabel, commandLineForRoot, monitor);
+                    this.synchronizer.ensureRootProject(bspClient, rootLabel, commandLineForRoot, monitor);
                     logInfo("BSP root project ensured for: " + rootLabel);
                     startClient(bspClient, config,
                         message -> logInfo("BSP[" + rootLabel + "] <- " + summarize(message)),
@@ -115,7 +117,7 @@ public final class BspClientManager {
                         },
                         models -> {
                             probe.sourceSetsResolved = true;
-                            logSourceSets(rootLabel, commandLineForRoot, models);
+                            logSourceSets(bspClient, rootLabel, commandLineForRoot, models);
                             probe.latch.countDown();
                         });
                     this.clients.put(config.workingDirectory(), bspClient);
@@ -223,14 +225,15 @@ public final class BspClientManager {
         return compact;
     }
 
-    private void logSourceSets(String rootLabel, String commandLine, List<BspSourceSetModel> models) {
+    private void logSourceSets(BspProcessClient bspClient, String rootLabel, String commandLine,
+            List<BspSourceSetModel> models) {
         logInfo("BSP[" + rootLabel + "] build targets resolved: " + models.size());
         for (BspSourceSetModel model : models) {
             logInfo("BSP[" + rootLabel + "] build target id: " + model.sourceSetId());
         }
         Job.create("Synchronize BSP build targets", monitor -> {
             try {
-                this.synchronizer.synchronize(rootLabel, commandLine, models, monitor);
+                this.synchronizer.synchronize(bspClient, rootLabel, commandLine, models, monitor);
                 return Status.OK_STATUS;
             } catch (Exception e) {
                 logError("Failed to synchronize BSP build targets", e);

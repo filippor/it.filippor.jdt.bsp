@@ -26,7 +26,7 @@ import ch.epfl.scala.bsp4j.SourcesItem;
 import ch.epfl.scala.bsp4j.SourcesParams;
 import ch.epfl.scala.bsp4j.SourcesResult;
 import ch.epfl.scala.bsp4j.WorkspaceBuildTargetsResult;
-import it.filippor.jdt.bsp.core.model.BspClasspathEnricher;
+import it.filippor.jdt.bsp.core.extensions.BspClasspathEnricher;
 import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
 import it.filippor.jdt.bsp.core.protocol.BspExtendedBuildServer;
 import it.filippor.jdt.bsp.core.protocol.BspTargetParams;

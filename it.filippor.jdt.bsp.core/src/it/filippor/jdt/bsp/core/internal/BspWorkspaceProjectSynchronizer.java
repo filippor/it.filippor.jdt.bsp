@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.core;
+package it.filippor.jdt.bsp.core.internal;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -9,16 +9,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import it.filippor.jdt.bsp.core.internal.BspClasspathMapper;
-import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
-import it.filippor.jdt.bsp.core.nature.BspModuleProjectNature;
-import it.filippor.jdt.bsp.core.nature.BspRootProjectNature;
-import it.filippor.jdt.bsp.core.nature.BspSourceSetProjectNature;
-
-import org.osgi.framework.Bundle;
-import org.osgi.framework.FrameworkUtil;
-import org.osgi.service.prefs.Preferences;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
@@ -38,22 +28,37 @@ import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.service.prefs.Preferences;
+
+import ch.epfl.scala.bsp4j.BuildServer;
+import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
+import it.filippor.jdt.bsp.core.extensions.BspProjectConfigurationContext;
+import it.filippor.jdt.bsp.core.extensions.BspProjectConfigurer;
+import it.filippor.jdt.bsp.core.extensions.BspProjectKind;
+import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
+import it.filippor.jdt.bsp.core.nature.BspModuleProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspRootProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspSourceSetProjectNature;
+import it.filippor.jdt.bsp.core.protocol.BspProcessClient;
 
 public class BspWorkspaceProjectSynchronizer {
 
     private final BspClasspathMapper classpathMapper = new BspClasspathMapper();
+    private final List<BspProjectConfigurer> projectConfigurers = BspProjectConfigurerRegistry.loadConfigurers();
     private static final String BSP_META = "it.filippor.jdt.bsp.core";
     private static final String CORE_PLUGIN_ID = "it.filippor.jdt.bsp.core";
-    private static final QualifiedName BSP_ROOT_FOLDER = new QualifiedName(BSP_META, "rootFolder");
     private static final QualifiedName BSP_COMMAND = new QualifiedName(BSP_META, "commandLine");
 
-    public IProject ensureRootProject(String rootLabel, String commandLine, IProgressMonitor monitor)
+    public IProject ensureRootProject(BspProcessClient bspClient, String rootFolder, String commandLine,
+                                      IProgressMonitor monitor)
         throws CoreException {
         IWorkspaceRoot root = ResourcesPlugin.getWorkspace()
                                              .getRoot();
-        String rootProjectName = toRootProjectName(rootLabel);
+        String rootProjectName = toRootProjectName(rootFolder);
         IProject rootProject = root.getProject(rootProjectName);
-        ensureProject(rootProject, Path.fromOSString(rootLabel), false, monitor);
+        ensureProject(rootProject, Path.fromOSString(rootFolder), false, monitor);
         try {
             ensureBspRootNature(rootProject, monitor);
         } catch (CoreException e) {
@@ -62,18 +67,26 @@ public class BspWorkspaceProjectSynchronizer {
                     + "'. Startup will continue without the BSP root nature.",
                 e);
         }
-        rootProject.setPersistentProperty(BSP_ROOT_FOLDER, rootLabel);
         rootProject.setPersistentProperty(BSP_COMMAND, commandLine);
         writeProjectSettings(rootProject, commandLine);
+        applyProjectConfigurers(new BspProjectConfigurationContext(
+        		rootProject, 
+        		BspProjectKind.ROOT,
+        		toBuildServer(bspClient), 
+        		rootFolder, 
+        		"root", 
+        		null, 
+        		monitor));
         return rootProject;
     }
 
-    public void synchronize(String rootLabel, String commandLine, List<BspSourceSetModel> sourceSets,
+    public void synchronize(BspProcessClient bspClient, String rootLabel, String commandLine,
+                            List<BspSourceSetModel> sourceSets,
                             IProgressMonitor monitor)
         throws CoreException, JavaModelException {
         IWorkspaceRoot root = ResourcesPlugin.getWorkspace()
                                              .getRoot();
-        IProject rootProject = ensureRootProject(rootLabel, commandLine, monitor);
+        IProject rootProject = ensureRootProject(bspClient, rootLabel, commandLine, monitor);
         String rootProjectName = rootProject.getName();
         String rootLogicalName = extractFolderName(rootLabel);
         Map<String, List<BspSourceSetModel>> sourceSetsByModule = groupByModule(rootLabel, sourceSets);
@@ -96,6 +109,14 @@ public class BspWorkspaceProjectSynchronizer {
                         + "'. Synchronization will continue without the BSP container nature.",
                     e);
             }
+            applyProjectConfigurers(new BspProjectConfigurationContext(
+            		containerProject, 
+            		BspProjectKind.MODULE,
+            		toBuildServer(bspClient), 
+            		rootLabel, 
+            		containerName, 
+            		null,  
+            		monitor));
 
             List<IProject> buildTargetProjects = new ArrayList<>();
             List<SourceSetBinding> containerBindings = new ArrayList<>();
@@ -124,6 +145,14 @@ public class BspWorkspaceProjectSynchronizer {
                 this.classpathMapper.apply(javaProject, sourceSet, monitor);
                 applyJavaCompliance(javaProject, sourceSet.javaSourceLevel());
                 applyProjectEncoding(buildTargetProject, sourceSet.javaEncoding(), monitor);
+				applyProjectConfigurers(new BspProjectConfigurationContext(
+						buildTargetProject,
+						BspProjectKind.SOURCE_SET, 
+						toBuildServer(bspClient), 
+						rootLabel, 
+						containerName,
+						buildTargetName, 
+						monitor));
                 SourceSetBinding binding = new SourceSetBinding(containerName, buildTargetName, sourceSet,
                     buildTargetProject, javaProject);
                 containerBindings.add(binding);
@@ -463,6 +492,26 @@ public class BspWorkspaceProjectSynchronizer {
         }
         Platform.getLog(bundle)
                 .log(new Status(severity, CORE_PLUGIN_ID, message, error));
+    }
+
+    private static BuildServer toBuildServer(BspProcessClient bspClient) {
+        return bspClient == null ? null : bspClient.getBuildServer();
+    }
+
+    private void applyProjectConfigurers(BspProjectConfigurationContext context) {
+        if (this.projectConfigurers.isEmpty()) {
+            return;
+        }
+        for (BspProjectConfigurer configurer : this.projectConfigurers) {
+            try {
+                configurer.configure(context);
+            } catch (Exception e) {
+                log(IStatus.WARNING,
+                    "Project configurer '" + configurer.getClass().getName() + "' failed for project '"
+                        + context.project().getName() + "'.",
+                    e);
+            }
+        }
     }
 
     private static void writeProjectSettings(IProject project, String commandLine) {

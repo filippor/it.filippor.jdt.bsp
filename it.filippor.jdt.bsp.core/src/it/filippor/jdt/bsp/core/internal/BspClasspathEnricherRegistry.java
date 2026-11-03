@@ -8,9 +8,9 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.Platform;
 
-import it.filippor.jdt.bsp.core.model.BspClasspathEnricher;
+import it.filippor.jdt.bsp.core.extensions.BspClasspathEnricher;
 
-final class BspClasspathEnricherRegistry {
+public final class BspClasspathEnricherRegistry {
 
     private static final String CORE_PLUGIN_ID = "it.filippor.jdt.bsp.core";
     private static final String EXTENSION_POINT_ID = CORE_PLUGIN_ID + ".classpathEnricher";
@@ -18,7 +18,7 @@ final class BspClasspathEnricherRegistry {
     private BspClasspathEnricherRegistry() {
     }
 
-    static List<BspClasspathEnricher> loadEnrichers() {
+    public static List<BspClasspathEnricher> loadEnrichers() {
         IConfigurationElement[] elements = Platform.getExtensionRegistry().getConfigurationElementsFor(
             EXTENSION_POINT_ID);
         List<EnricherContribution> contributions = new ArrayList<>(elements.length);

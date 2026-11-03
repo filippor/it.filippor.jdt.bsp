@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.core;
+package it.filippor.jdt.bsp.core.protocol;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -19,6 +19,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+
+import org.eclipse.lsp4j.jsonrpc.Launcher;
 
 import ch.epfl.scala.bsp4j.BuildClient;
 import ch.epfl.scala.bsp4j.BuildServer;
@@ -48,10 +50,6 @@ import it.filippor.jdt.bsp.core.internal.BspWorkspaceModelResolver;
 import it.filippor.jdt.bsp.core.model.BspBuildTargetActionModel;
 import it.filippor.jdt.bsp.core.model.BspConnectionConfig;
 import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
-import it.filippor.jdt.bsp.core.protocol.Bsp4jSupport;
-import it.filippor.jdt.bsp.core.protocol.BspExtendedBuildServer;
-
-import org.eclipse.lsp4j.jsonrpc.Launcher;
 
 public class BspProcessClient {
 
@@ -68,6 +66,10 @@ public class BspProcessClient {
     private Future<Void> listening;
     private final BspWorkspaceModelResolver modelResolver = new BspWorkspaceModelResolver();
     private volatile boolean protocolEnabled;
+
+    public synchronized BuildServer getBuildServer() {
+        return this.server;
+    }
 
     public synchronized void start(BspConnectionConfig config, Consumer<String> onInfo, Consumer<String> onStderr,
                                    Consumer<List<BspSourceSetModel>> onSourceSets) throws IOException {

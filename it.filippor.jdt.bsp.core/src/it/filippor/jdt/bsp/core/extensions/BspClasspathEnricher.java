@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.core.model;
+package it.filippor.jdt.bsp.core.extensions;
 
 import java.util.List;
 

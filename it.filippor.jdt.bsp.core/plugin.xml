@@ -15,6 +15,12 @@
          schema="schema/classpathEnricher.exsd">
    </extension-point>
 
+   <extension-point
+         id="projectConfigurer"
+         name="BSP Project Configurer"
+         schema="schema/projectConfigurer.exsd">
+   </extension-point>
+
    <extension
          id="bspRootNature"
          name="JDT BSP Root Project"
