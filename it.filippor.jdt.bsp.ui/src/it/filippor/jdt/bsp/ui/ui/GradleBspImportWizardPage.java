@@ -25,6 +25,12 @@ class GradleBspImportWizardPage extends WizardPage {
 	private static final String MODE_PATH = "path";
 	private static final String MODE_CUSTOM = "custom";
 	private static final boolean WINDOWS_HOST = System.getProperty("os.name", "").toLowerCase().contains("win");
+	private static final String COMMAND_VARIABLE_HINT = String.join(System.lineSeparator(),
+			"Variables:",
+			"${" + BspPreferenceInitializer.VAR_JAVA_HOME + "} (Java home)",
+			"${" + BspPreferenceInitializer.VAR_BSP_PLUGIN_DIR + "} (embedded plugin dir)",
+			"${" + BspPreferenceInitializer.VAR_BSP_CLASSPATH + "} (embedded launcher classpath)",
+			"%VAR% (environment variable)");
 
 	private Text commandLineText;
 	private Text rootDirectoryText;
@@ -48,9 +54,9 @@ class GradleBspImportWizardPage extends WizardPage {
 		Composite container = new Composite(parent, SWT.NONE);
 		container.setLayout(new GridLayout(3, false));
 
+		createRootsField(container);
 		createCommandModeField(container);
 		createCommandLineField(container);
-		createRootsField(container);
 		createStartOption(container);
 		initializeDefaults();
 		updateCommandFromMode();
@@ -113,6 +119,11 @@ class GradleBspImportWizardPage extends WizardPage {
 		this.commandLineText = new Text(parent, SWT.BORDER);
 		this.commandLineText.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1));
 		this.commandLineText.addModifyListener(event -> validatePage());
+
+		new Label(parent, SWT.NONE);
+		Label variableHint = new Label(parent, SWT.WRAP);
+		variableHint.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false, 2, 1));
+		variableHint.setText(COMMAND_VARIABLE_HINT);
 	}
 
 	private void createRootsField(Composite parent) {
@@ -156,9 +167,7 @@ class GradleBspImportWizardPage extends WizardPage {
 
 		String commandLine = store.getString(BspPreferenceInitializer.PREF_COMMAND_LINE);
 		if (commandLine == null || commandLine.isBlank()) {
-			String osName = System.getProperty("os.name", "").toLowerCase();
-			commandLine = osName.contains("win") ? "cmd /c gradlew.bat bsp"
-					: BspPreferenceInitializer.DEFAULT_COMMAND_LINE;
+			commandLine = BspPreferenceInitializer.DEFAULT_COMMAND_LINE;
 		}
 		this.commandLineText.setText(commandLine);
 

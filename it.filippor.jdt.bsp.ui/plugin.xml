@@ -204,4 +204,12 @@
       </viewerContentBinding>
    </extension>
 
+   <extension
+         point="it.filippor.jdt.bsp.core.classpathEnricher">
+      <enricher
+            class="it.filippor.jdt.bsp.ui.classpath.GradleApiFallbackClasspathEnricher"
+            order="100">
+      </enricher>
+   </extension>
+
 </plugin>

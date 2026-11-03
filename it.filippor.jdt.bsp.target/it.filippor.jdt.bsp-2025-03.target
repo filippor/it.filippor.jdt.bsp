@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?pde version="3.8"?>
+<target name="it.filippor.jdt.bsp-2025-03" sequenceNumber="1">
+  <locations>
+    <location type="InstallableUnit"
+              includeMode="planner"
+              includeAllPlatforms="false"
+              includeConfigurePhase="true"
+              includeSource="false">
+      <repository location="https://download.eclipse.org/releases/2025-03"/>
+      <unit id="org.eclipse.platform.ide" version="0.0.0"/>
+      <unit id="org.eclipse.jdt.feature.group" version="0.0.0"/>
+    </location>
+  </locations>
+</target>

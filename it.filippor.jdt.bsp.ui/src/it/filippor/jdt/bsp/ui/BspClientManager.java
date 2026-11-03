@@ -15,6 +15,8 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import it.filippor.jdt.bsp.core.BspConnectionConfig;
@@ -49,7 +51,16 @@ public final class BspClientManager {
 	private static final String BSP_CORE_BUNDLE_ID = "it.filippor.jdt.bsp.core";
 	private static final String BSP_JAVA_HOME_PROPERTY = "it.filippor.jdt.bsp.java.home";
 	private static final String BSP_JAVA_COMMAND_PROPERTY = "it.filippor.jdt.bsp.java.command";
+	private static final String BSP_PLUGIN_DIR_PROPERTY = "it.filippor.jdt.bsp.embedded.plugin.dir";
+	private static final String BSP_CLASSPATH_PROPERTY = "it.filippor.jdt.bsp.embedded.launcher.classpath";
+	private static final String BSP_LAUNCHER_CLASS_PROPERTY = "it.filippor.jdt.bsp.embedded.launcher.class";
 	private static final String BSP_JAVA_HOME_ENV = "JDT_BSP_JAVA_HOME";
+	private static final String BSP_PLUGIN_DIR_ENV = "JDT_BSP_EMBEDDED_PLUGIN_DIR";
+	private static final String BSP_CLASSPATH_ENV = "JDT_BSP_EMBEDDED_LAUNCHER_CLASSPATH";
+	private static final String BSP_LAUNCHER_CLASS_ENV = "JDT_BSP_EMBEDDED_LAUNCHER_CLASS";
+	private static final String DEFAULT_BSP_LAUNCHER_CLASS = "com.microsoft.java.bs.core.Launcher";
+	private static final Pattern BRACED_ENV_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+	private static final Pattern WINDOWS_ENV_PATTERN = Pattern.compile("%([^%]+)%");
 
 	private static final BspClientManager INSTANCE = new BspClientManager();
 
@@ -87,7 +98,8 @@ public final class BspClientManager {
 				}
 				BspProcessClient bspClient = new BspProcessClient();
 				String rootLabel = config.workingDirectory().toString();
-				String commandLineForRoot = String.join(" ", config.command());
+				String commandLineForRoot = config.persistedCommandLine();
+				String commandLineForLog = String.join(" ", config.command());
 				RootStartProbe probe = new RootStartProbe(rootLabel);
 				probes.add(probe);
 				try {
@@ -104,15 +116,15 @@ public final class BspClientManager {
 							},
 							models -> {
 								probe.sourceSetsResolved = true;
-								logSourceSets(rootLabel, String.join(" ", config.command()), models);
+								logSourceSets(rootLabel, commandLineForRoot, models);
 								probe.latch.countDown();
 							});
 					this.clients.put(config.workingDirectory(), bspClient);
 					started++;
 					BspClientPlugin.logInfo("BSP client started for root: " + rootLabel
-							+ " using command: " + commandLineForRoot);
+							+ " using command: " + commandLineForLog);
 				} catch (Throwable e) {
-					String command = commandLineForRoot;
+					String command = commandLineForLog;
 					String detail = "Failed to start BSP client for root '" + rootLabel
 							+ "' with command '" + command + "'.";
 					if (e.getMessage() != null && e.getMessage().contains("CreateProcess error=2")) {
@@ -204,7 +216,8 @@ public final class BspClientManager {
 		if (!Files.isRegularFile(wrapper)) {
 			return null;
 		}
-		return new BspConnectionConfig(List.of("cmd", "/c", "gradlew.bat", "bsp"), config.workingDirectory());
+		return new BspConnectionConfig(List.of("cmd", "/c", "gradlew.bat", "bsp"), config.workingDirectory(),
+				config.initializeData(), config.persistedCommandLine());
 	}
 
 	private static String summarize(String json) {
@@ -264,7 +277,8 @@ public final class BspClientManager {
 			rootPath = roots.isEmpty() ? Path.of(ResourcesPlugin.getWorkspace().getRoot().getLocation().toOSString())
 					: roots.get(0);
 		}
-		return List.of(new BspConnectionConfig(command, rootPath, initializeData));
+		String persistedCommandLine = resolvePersistedCommandLine(mode, commandLine);
+		return List.of(new BspConnectionConfig(command, rootPath, initializeData, persistedCommandLine));
 	}
 
 	private List<BspConnectionConfig> buildConfigsFromBspRootProjects() {
@@ -275,9 +289,11 @@ public final class BspClientManager {
 				BspPreferenceInitializer.DEFAULT_COMMAND_LINE);
 		List<String> defaultCommand;
 		Map<String, Object> defaultInitializeData;
+		String defaultPersistedCommandLine;
 		try {
 			defaultCommand = buildCommand(mode, defaultCommandLine, executablePath);
 			defaultInitializeData = buildInitializeData(mode, executablePath);
+			defaultPersistedCommandLine = resolvePersistedCommandLine(mode, defaultCommandLine);
 		} catch (CoreException e) {
 			BspClientPlugin.logError("Failed to resolve BSP command preferences", e);
 			return configs;
@@ -295,8 +311,11 @@ public final class BspClientManager {
 				boolean customMode = MODE_CUSTOM.equals(mode);
 				List<String> command = customMode ? parseCommandLine(commandLine) : defaultCommand;
 				Map<String, Object> initializeData = customMode ? Map.of() : defaultInitializeData;
+				String persistedCommandLine = customMode
+						? normalizePersistedCommandLine(commandLine)
+						: defaultPersistedCommandLine;
 				if (!command.isEmpty()) {
-					configs.add(new BspConnectionConfig(command, rootPath, initializeData));
+					configs.add(new BspConnectionConfig(command, rootPath, initializeData, persistedCommandLine));
 				}
 			} catch (Exception e) {
 				BspClientPlugin.logError("Failed to read BSP root project settings for " + project.getName(), e);
@@ -311,15 +330,16 @@ public final class BspClientManager {
 			case MODE_WRAPPER -> buildEmbeddedServerCommand();
 			case MODE_SYSTEM -> buildEmbeddedServerCommand();
 			case MODE_PATH -> {
-				if (executablePath == null || executablePath.isBlank()) {
+				String resolvedExecutablePath = expandVariables(executablePath);
+				if (resolvedExecutablePath == null || resolvedExecutablePath.isBlank()) {
 					throw new CoreException(new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID,
 							"Gradle executable path is empty in path mode"));
 				}
 				yield buildEmbeddedServerCommand();
 			}
 			case MODE_EMBEDDED -> buildEmbeddedServerCommand();
-			case MODE_CUSTOM -> parseCommandLine(customCommandLine);
-			default -> parseCommandLine(customCommandLine);
+			case MODE_CUSTOM -> parseCommandLine(expandVariables(customCommandLine));
+			default -> parseCommandLine(expandVariables(customCommandLine));
 		};
 	}
 
@@ -329,13 +349,14 @@ public final class BspClientManager {
 			case MODE_WRAPPER -> Map.of("isWrapperEnabled", Boolean.TRUE);
 			case MODE_SYSTEM -> Map.of("isWrapperEnabled", Boolean.FALSE);
 			case MODE_PATH -> {
-				if (executablePath == null || executablePath.isBlank()) {
+				String resolvedExecutablePath = expandVariables(executablePath);
+				if (resolvedExecutablePath == null || resolvedExecutablePath.isBlank()) {
 					throw new CoreException(new Status(IStatus.ERROR, BspClientPlugin.PLUGIN_ID,
 							"Gradle executable path is empty in path mode"));
 				}
 				Map<String, Object> data = new LinkedHashMap<>();
 				data.put("isWrapperEnabled", Boolean.FALSE);
-				data.put("gradleHome", resolveGradleHome(executablePath));
+				data.put("gradleHome", resolveGradleHome(resolvedExecutablePath));
 				yield data;
 			}
 			case MODE_CUSTOM -> Map.of();
@@ -454,10 +475,42 @@ public final class BspClientManager {
 		Path serverJar = resolveBundledPath("lib/gradle-bsp/server.jar");
 		Path runtimeDir = resolveBundledPath("lib/gradle-bsp/runtime");
 		Path pluginDir = resolveBundledPath("lib/gradle-bsp/plugins");
-		String runtimeWildcard = runtimeDir.toString() + File.separator + "*";
-		String classpath = serverJar + File.pathSeparator + runtimeWildcard;
-		return List.of(resolveJavaCommand(), "-Dplugin.dir=" + pluginDir, "-cp", classpath,
-				"com.microsoft.java.bs.core.Launcher");
+		String runtimeWildcard = runtimeDir + File.separator + "*";
+		String defaultClasspath = serverJar + File.pathSeparator + runtimeWildcard;
+		String classpath = resolveLaunchValue(BSP_CLASSPATH_PROPERTY, BSP_CLASSPATH_ENV, defaultClasspath);
+		String resolvedPluginDir = resolveLaunchValue(BSP_PLUGIN_DIR_PROPERTY, BSP_PLUGIN_DIR_ENV,
+				pluginDir.toString());
+		String launcherClass = resolveLaunchValue(BSP_LAUNCHER_CLASS_PROPERTY, BSP_LAUNCHER_CLASS_ENV,
+				DEFAULT_BSP_LAUNCHER_CLASS);
+		return List.of(resolveJavaCommand(), "-Dplugin.dir=" + resolvedPluginDir, "-cp", classpath,
+				launcherClass);
+	}
+
+	private static String resolveLaunchValue(String propertyKey, String envKey, String defaultValue) {
+		String configured = System.getProperty(propertyKey);
+		if (configured != null && !configured.isBlank()) {
+			return expandVariables(configured.trim());
+		}
+		String fromEnv = System.getenv(envKey);
+		if (fromEnv != null && !fromEnv.isBlank()) {
+			return expandVariables(fromEnv.trim());
+		}
+		return expandVariables(defaultValue);
+	}
+
+	private static String resolvePersistedCommandLine(String mode, String configuredCommandLine) {
+		String resolvedMode = mode == null || mode.isBlank() ? MODE_SYSTEM : mode;
+		if (MODE_CUSTOM.equals(resolvedMode)) {
+			return normalizePersistedCommandLine(configuredCommandLine);
+		}
+		return BspPreferenceInitializer.DEFAULT_COMMAND_LINE;
+	}
+
+	private static String normalizePersistedCommandLine(String commandLine) {
+		if (commandLine == null || commandLine.isBlank()) {
+			return BspPreferenceInitializer.DEFAULT_COMMAND_LINE;
+		}
+		return commandLine.trim();
 	}
 
 	private static Path resolveBundledPath(String relativePath) throws CoreException {
@@ -549,6 +602,44 @@ public final class BspClientManager {
 			tokens.add(current.toString());
 		}
 		return tokens;
+	}
+
+	private static String expandVariables(String value) {
+		if (value == null || value.isBlank()) {
+			return value;
+		}
+		String expanded = replacePatternVariables(value, BRACED_ENV_PATTERN);
+		return replacePatternVariables(expanded, WINDOWS_ENV_PATTERN);
+	}
+
+	private static String replacePatternVariables(String value, Pattern pattern) {
+		Matcher matcher = pattern.matcher(value);
+		StringBuffer resolved = new StringBuffer();
+		while (matcher.find()) {
+			String variableName = matcher.group(1);
+			String replacement = resolveVariable(variableName);
+			if (replacement == null) {
+				replacement = matcher.group(0);
+			}
+			matcher.appendReplacement(resolved, Matcher.quoteReplacement(replacement));
+		}
+		matcher.appendTail(resolved);
+		return resolved.toString();
+	}
+
+	private static String resolveVariable(String variableName) {
+		if (variableName == null || variableName.isBlank()) {
+			return null;
+		}
+		String env = System.getenv(variableName);
+		if (env != null && !env.isBlank()) {
+			return env;
+		}
+		String property = System.getProperty(variableName);
+		if (property != null && !property.isBlank()) {
+			return property;
+		}
+		return null;
 	}
 
 	public void stop() {

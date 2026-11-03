@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <launchConfiguration type="org.eclipse.pde.ui.RuntimeWorkbench">
     <booleanAttribute key="add_console" value="false"/>
-    <setAttribute key="additional_plugins"/>
+    <setAttribute key="additional_plugins">
+        <setEntry value="it.filippor.jdt.bsp.core:1.0.0.qualifier:default:false:default:default"/>
+        <setEntry value="it.filippor.jdt.bsp.ui:1.0.0.qualifier:default:false:default:default"/>
+    </setAttribute>
     <booleanAttribute key="append.args" value="true"/>
     <booleanAttribute key="askclear" value="true"/>
     <booleanAttribute key="automaticAdd" value="true"/>
@@ -12,7 +15,7 @@
     <booleanAttribute key="clearws" value="true"/>
     <booleanAttribute key="clearwslog" value="false"/>
     <stringAttribute key="configLocation" value="${workspace_loc}/.metadata/.plugins/org.eclipse.pde.core/JdtBsp"/>
-    <booleanAttribute key="default" value="true"/>
+    <booleanAttribute key="default" value="false"/>
     <setAttribute key="deselected_workspace_bundles"/>
     <stringAttribute key="featureDefaultLocation" value="workspace"/>
     <stringAttribute key="featurePluginResolution" value="workspace"/>
@@ -23,42 +26,15 @@
     <booleanAttribute key="org.eclipse.jdt.launching.ATTR_ATTR_USE_ARGFILE" value="false"/>
     <booleanAttribute key="org.eclipse.jdt.launching.ATTR_SHOW_CODEDETAILS_IN_EXCEPTION_MESSAGES" value="true"/>
     <booleanAttribute key="org.eclipse.jdt.launching.ATTR_USE_START_ON_FIRST_THREAD" value="true"/>
-    <stringAttribute key="org.eclipse.jdt.launching.JRE_CONTAINER" value="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-25"/>
+    <stringAttribute key="org.eclipse.jdt.launching.JRE_CONTAINER" value="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-21"/>
     <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-os ${target.os} -ws ${target.ws} -arch ${target.arch} -nl ${target.nl} -consoleLog"/>
     <stringAttribute key="org.eclipse.jdt.launching.SOURCE_PATH_PROVIDER" value="org.eclipse.pde.ui.workbenchClasspathProvider"/>
     <stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-Dorg.eclipse.swt.graphics.Resource.reportNonDisposed=true --enable-native-access=ALL-UNNAMED"/>
     <stringAttribute key="pde.version" value="3.3"/>
     <stringAttribute key="product" value="org.eclipse.platform.ide"/>
     <setAttribute key="selected_features">
-        <setEntry value="org.eclipse.buildship.oomph:default"/>
-        <setEntry value="org.eclipse.buildship:default"/>
-        <setEntry value="org.eclipse.e4.rcp:default"/>
-        <setEntry value="org.eclipse.equinox.p2.core.feature:default"/>
-        <setEntry value="org.eclipse.equinox.p2.extras.feature:default"/>
-        <setEntry value="org.eclipse.equinox.p2.rcp.feature:default"/>
-        <setEntry value="org.eclipse.equinox.p2.user.ui:default"/>
-        <setEntry value="org.eclipse.help:default"/>
-        <setEntry value="org.eclipse.jdt.astview.feature:default"/>
-        <setEntry value="org.eclipse.jdt.bcoview.feature:default"/>
-        <setEntry value="org.eclipse.jdt.jeview.feature:default"/>
-        <setEntry value="org.eclipse.jdt.ui.unittest.junit.feature:default"/>
+        <setEntry value="it.filippor.jdt.bsp.feature:default"/>
         <setEntry value="org.eclipse.jdt:default"/>
-        <setEntry value="org.eclipse.m2e.feature:default"/>
-        <setEntry value="org.eclipse.m2e.lemminx.feature:default"/>
-        <setEntry value="org.eclipse.oomph.p2:default"/>
-        <setEntry value="org.eclipse.oomph.setup.core:default"/>
-        <setEntry value="org.eclipse.oomph.setup:default"/>
-        <setEntry value="org.eclipse.pde.spies:default"/>
-        <setEntry value="org.eclipse.pde:default"/>
-        <setEntry value="org.eclipse.platform:default"/>
-        <setEntry value="org.eclipse.rcp:default"/>
-        <setEntry value="org.eclipse.sdk:default"/>
-        <setEntry value="org.eclipse.swtbot.eclipse:default"/>
-        <setEntry value="org.eclipse.swtbot.forms:default"/>
-        <setEntry value="org.eclipse.swtbot.generator.feature:default"/>
-        <setEntry value="org.eclipse.swtbot.ide:default"/>
-        <setEntry value="org.eclipse.swtbot.junit5:default"/>
-        <setEntry value="org.eclipse.swtbot:default"/>
     </setAttribute>
     <setAttribute key="selected_target_bundles">
         <setEntry value="bcpg@default:default"/>
@@ -200,13 +176,13 @@
         <setEntry value="slf4j.simple@default:default"/>
     </setAttribute>
     <setAttribute key="selected_workspace_bundles">
-        <setEntry value="it.filippor.jdt.bsp.ui@default:default"/>
         <setEntry value="it.filippor.jdt.bsp.core@default:default"/>
+        <setEntry value="it.filippor.jdt.bsp.ui@default:default"/>
     </setAttribute>
     <booleanAttribute key="show_selected_only" value="false"/>
     <stringAttribute key="templateConfig" value="${target_home}\configuration\config.ini"/>
     <booleanAttribute key="tracing" value="false"/>
-    <booleanAttribute key="useCustomFeatures" value="false"/>
+    <booleanAttribute key="useCustomFeatures" value="true"/>
     <booleanAttribute key="useDefaultConfig" value="true"/>
     <booleanAttribute key="useDefaultConfigArea" value="true"/>
     <booleanAttribute key="useProduct" value="true"/>

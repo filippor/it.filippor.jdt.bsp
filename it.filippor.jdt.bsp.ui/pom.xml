@@ -10,6 +10,5 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
   <artifactId>it.filippor.jdt.bsp.ui</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
   <packaging>eclipse-plugin</packaging>
 </project>

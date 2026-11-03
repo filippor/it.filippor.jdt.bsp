@@ -11,7 +11,12 @@ public class BspPreferenceInitializer extends AbstractPreferenceInitializer {
 	public static final String PREF_ROOT_DIRECTORIES = "rootDirectories";
 	public static final String PREF_COMMAND_MODE = "commandMode";
 	public static final String PREF_GRADLE_EXECUTABLE_PATH = "gradleExecutablePath";
-	public static final String DEFAULT_COMMAND_LINE = "gradle bsp";
+	public static final String VAR_JAVA_HOME = "JAVA_HOME";
+	public static final String VAR_BSP_PLUGIN_DIR = "BSP_GRADLE_EMBEDDED_PLUGIN_DIR";
+	public static final String VAR_BSP_CLASSPATH = "BSP_GRADLE_EMBEDDED_CLASSPATH";
+	public static final String DEFAULT_COMMAND_LINE = "\"${" + VAR_JAVA_HOME
+			+ "}\\bin\\java.exe\" -Dplugin.dir=\"${" + VAR_BSP_PLUGIN_DIR + "}\" -cp \"${"
+			+ VAR_BSP_CLASSPATH + "}\" com.microsoft.java.bs.core.Launcher";
 	private static final String DEFAULT_ROOT_DIRECTORY = "C:\\Localgit\\my\\build-server-for-gradle";
 
 	@Override

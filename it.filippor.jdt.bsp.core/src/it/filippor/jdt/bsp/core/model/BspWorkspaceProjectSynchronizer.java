@@ -491,13 +491,13 @@ public class BspWorkspaceProjectSynchronizer {
     }
 
     private static String toModuleProjectName(String rootProjectName, String moduleName) {
-        String moduleSegment = moduleName == null || moduleName.isBlank() ? "root" : moduleName.replace('/', ':');
-        String child = rootProjectName + ":" + sanitizeProjectName(moduleSegment);
+        String moduleSegment = moduleName == null || moduleName.isBlank() ? "root" : moduleName.replace('/', '_');
+        String child = rootProjectName + "_" + sanitizeProjectName(moduleSegment);
         return truncateWithHash(child, 100);
     }
 
     private static String toSourceSetProjectName(String moduleProjectName, String sourceSetName) {
-        String child = moduleProjectName + ":" + sanitizeProjectName(sourceSetName);
+        String child = moduleProjectName + "_" + sanitizeProjectName(sourceSetName);
         return truncateWithHash(child, 110);
     }
 
@@ -648,7 +648,7 @@ public class BspWorkspaceProjectSynchronizer {
         if (text == null || text.isBlank()) {
             return "bsp_project";
         }
-        String candidate = text.replaceAll("[^A-Za-z0-9._:-]", "_");
+        String candidate = text.replaceAll("[^A-Za-z0-9._-]", "_");
         return candidate.isBlank() ? "bsp_project" : candidate;
     }
 

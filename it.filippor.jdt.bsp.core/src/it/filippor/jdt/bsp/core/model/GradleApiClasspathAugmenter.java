@@ -21,7 +21,7 @@ import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jdt.core.IClasspathEntry;
 
-final class GradleApiClasspathAugmenter {
+public final class GradleApiClasspathAugmenter {
 
     private static final String CORE_PLUGIN_ID = "it.filippor.jdt.bsp.core";
     private static final Pattern GRADLE_VERSIONED_JAR = Pattern.compile(
@@ -32,7 +32,7 @@ final class GradleApiClasspathAugmenter {
     private GradleApiClasspathAugmenter() {
     }
 
-    static List<IClasspathEntry> addGradleApiEntriesIfNeeded(String sourceSetId, List<IClasspathEntry> classpath) {
+    public static List<IClasspathEntry> addGradleApiEntriesIfNeeded(String sourceSetId, List<IClasspathEntry> classpath) {
         Path moduleRoot = BspWorkspaceModelResolver.toLocalPathIfPossible(sourceSetId);
         boolean gradlePluginModule = usesJavaGradlePlugin(moduleRoot);
         boolean hasToolingApi = containsLibraryFileName(classpath,
@@ -48,10 +48,12 @@ final class GradleApiClasspathAugmenter {
             fileName -> fileName.matches("gradle-core-api-[0-9].*\\.jar"));
         boolean hasGradleCore = containsLibraryFileName(classpath,
             fileName -> fileName.matches("gradle-core-[0-9].*\\.jar"));
+        boolean hasGroovy = containsLibraryFileName(classpath,
+            fileName -> fileName.startsWith("groovy-") && fileName.endsWith(".jar"));
         logInfo("Gradle enrichment start for " + sourceSetId + ": pluginMarker=" + gradlePluginModule
             + ", toolingApi=" + hasToolingApi + ", hasApi=" + hasGradleApi + ", hasCoreApi=" + hasGradleCoreApi
-            + ", hasCore=" + hasGradleCore);
-        if (hasGradleApi && hasGradleCoreApi && hasGradleCore) {
+            + ", hasCore=" + hasGradleCore + ", hasGroovy=" + hasGroovy);
+        if (hasGradleApi && hasGradleCoreApi && hasGradleCore && hasGroovy) {
             return classpath;
         }
 
@@ -84,7 +86,14 @@ final class GradleApiClasspathAugmenter {
                     }
                 }
             }
-            if (hasGradleApi && hasGradleCoreApi && hasGradleCore) {
+            if (!hasGroovy) {
+                for (Path groovyJar : findWrapperGroovyJars(version)) {
+                    merged.add(BspWorkspaceModelResolver.toLibraryClasspathEntry(groovyJar));
+                    hasGroovy = true;
+                    logInfo("Added groovy runtime from version " + version + ": " + groovyJar);
+                }
+            }
+            if (hasGradleApi && hasGradleCoreApi && hasGradleCore && hasGroovy) {
                 break;
             }
         }
@@ -275,6 +284,29 @@ final class GradleApiClasspathAugmenter {
                                       .toString();
                     return name.equals("gradle-core-api-" + gradleVersion + ".jar")
                         || name.equals("gradle-core-" + gradleVersion + ".jar");
+                })
+                .forEach(jars::add);
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+        return jars;
+    }
+
+    private static List<Path> findWrapperGroovyJars(String gradleVersion) {
+        Path wrapperDists = Path.of(System.getProperty("user.home"), ".gradle", "wrapper", "dists");
+        if (!Files.isDirectory(wrapperDists)) {
+            return Collections.emptyList();
+        }
+        List<Path> jars = new ArrayList<>();
+        String versionFolderToken = "gradle-" + gradleVersion;
+        try (Stream<Path> walk = Files.walk(wrapperDists, 8)) {
+            walk.filter(Files::isRegularFile)
+                .filter(path -> {
+                    String name = path.getFileName().toString();
+                    if (!name.startsWith("groovy-") || !name.endsWith(".jar")) {
+                        return false;
+                    }
+                    return path.toString().contains(versionFolderToken);
                 })
                 .forEach(jars::add);
         } catch (Exception e) {

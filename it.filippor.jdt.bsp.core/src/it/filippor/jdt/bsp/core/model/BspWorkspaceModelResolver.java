@@ -35,6 +35,7 @@ import org.eclipse.jdt.core.JavaCore;
 public class BspWorkspaceModelResolver {
 
     private static final long TARGET_DETAIL_TIMEOUT_SECONDS = 60;
+    private final List<BspClasspathEnricher> classpathEnrichers = BspClasspathEnricherRegistry.loadEnrichers();
 
     private enum JavacPathKind {
         CLASSPATH, PROCESSOR_PATH
@@ -106,7 +107,7 @@ public class BspWorkspaceModelResolver {
         return null;
     }
 
-    // Gradle API enrichment logic is delegated to GradleApiClasspathAugmenter.
+    // Optional classpath fallback logic is contributed via extension point.
 
     private List<IClasspathEntry> resolveCompileClasspath(BuildServer server,
                                                           BuildTargetIdentifier id,
@@ -149,15 +150,22 @@ public class BspWorkspaceModelResolver {
     }
 
     @SafeVarargs
-    private static List<IClasspathEntry> mergeAndEnrich(String sourceSetId,
-                                                        List<IClasspathEntry>... classpathSegments) {
+    private List<IClasspathEntry> mergeAndEnrich(String sourceSetId,
+                                                 List<IClasspathEntry>... classpathSegments) {
         LinkedHashSet<IClasspathEntry> merged = new LinkedHashSet<>();
         for (List<IClasspathEntry> classpathSegment : classpathSegments) {
             if (classpathSegment != null) {
                 merged.addAll(classpathSegment);
             }
         }
-        return GradleApiClasspathAugmenter.addGradleApiEntriesIfNeeded(sourceSetId, new ArrayList<>(merged));
+        List<IClasspathEntry> resolved = new ArrayList<>(merged);
+        for (BspClasspathEnricher classpathEnricher : this.classpathEnrichers) {
+            List<IClasspathEntry> enriched = classpathEnricher.enrich(sourceSetId, resolved);
+            if (enriched != null) {
+                resolved = enriched;
+            }
+        }
+        return resolved;
     }
 
     private List<IClasspathEntry> resolveJavacClasspath(BuildServer server, BuildTargetIdentifier id) {

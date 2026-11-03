@@ -18,8 +18,15 @@ import org.osgi.service.prefs.BackingStoreException;
 
 import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
 import it.filippor.jdt.bsp.ui.BspClientPlugin;
+import it.filippor.jdt.bsp.ui.BspPreferenceInitializer;
 
 public class BspRootProjectPropertyPage extends PropertyPage {
+	private static final String COMMAND_VARIABLE_HINT = String.join(System.lineSeparator(),
+			"Variables:",
+			"${" + BspPreferenceInitializer.VAR_JAVA_HOME + "} (Java home)",
+			"${" + BspPreferenceInitializer.VAR_BSP_PLUGIN_DIR + "} (embedded plugin dir)",
+			"${" + BspPreferenceInitializer.VAR_BSP_CLASSPATH + "} (embedded launcher classpath)",
+			"%VAR% (environment variable)");
 
 	private Text commandLineText;
 
@@ -57,6 +64,10 @@ public class BspRootProjectPropertyPage extends PropertyPage {
 		commandData.heightHint = 60;
 		this.commandLineText.setLayoutData(commandData);
 		this.commandLineText.addModifyListener(event -> validate());
+
+		Label variablesLabel = new Label(parent, SWT.WRAP);
+		variablesLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false, 2, 1));
+		variablesLabel.setText(COMMAND_VARIABLE_HINT);
 	}
 
 	private void loadSettings() {

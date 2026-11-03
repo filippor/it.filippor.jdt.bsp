@@ -38,7 +38,7 @@ jobs:
           maven-version: "3.9.11"
 
       - name: Build Tycho repository
-        run: mvn -B -ntp -Pbuild-individual-bundles clean package
+        run: mvn -B -ntp clean package
 
       - name: Set up Pages
         uses: actions/configure-pages@v5

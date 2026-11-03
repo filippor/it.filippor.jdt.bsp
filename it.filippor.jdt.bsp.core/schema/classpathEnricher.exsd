@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema targetNamespace="it.filippor.jdt.bsp.core">
+<annotation>
+      <appInfo>
+         <meta.schema plugin="it.filippor.jdt.bsp.core" id="classpathEnricher" name="BSP Classpath Enricher"/>
+      </appInfo>
+      <documentation>
+         Allows third-party bundles to enrich BSP-resolved classpath entries.
+      </documentation>
+   </annotation>
+
+   <element name="extension">
+      <complexType>
+         <sequence minOccurs="1" maxOccurs="unbounded">
+            <element ref="enricher"/>
+         </sequence>
+         <attribute name="point" type="string" use="required"/>
+         <attribute name="id" type="string"/>
+         <attribute name="name" type="string"/>
+      </complexType>
+   </element>
+
+   <element name="enricher">
+      <complexType>
+         <attribute name="class" type="string" use="required">
+            <annotation>
+               <documentation>
+                  Implementation of it.filippor.jdt.bsp.core.model.BspClasspathEnricher.
+               </documentation>
+               <appInfo>
+                  <meta.attribute kind="java" basedOn=":it.filippor.jdt.bsp.core.model.BspClasspathEnricher"/>
+               </appInfo>
+            </annotation>
+         </attribute>
+         <attribute name="order" type="integer">
+            <annotation>
+               <documentation>
+                  Lower values run first. Defaults to 0.
+               </documentation>
+            </annotation>
+         </attribute>
+      </complexType>
+   </element>
+
+</schema>

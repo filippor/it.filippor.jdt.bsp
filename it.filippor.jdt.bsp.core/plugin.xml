@@ -2,6 +2,12 @@
 <?eclipse version="3.0"?>
 <plugin>
 
+   <extension-point
+         id="classpathEnricher"
+         name="BSP Classpath Enricher"
+         schema="schema/classpathEnricher.exsd">
+   </extension-point>
+
    <extension
          id="bspRootNature"
          name="JDT BSP Root Project"
