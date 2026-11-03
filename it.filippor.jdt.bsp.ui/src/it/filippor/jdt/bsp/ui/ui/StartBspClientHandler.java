@@ -4,7 +4,7 @@ import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
 
-import it.filippor.jdt.bsp.ui.BspClientManager;
+import it.filippor.jdt.bsp.core.BspClientManager;
 
 public class StartBspClientHandler extends AbstractHandler {
 

@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.core.model;
+package it.filippor.jdt.bsp.core.internal;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,6 +20,8 @@ import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
+
+import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
 
 public class BspClasspathMapper {
 

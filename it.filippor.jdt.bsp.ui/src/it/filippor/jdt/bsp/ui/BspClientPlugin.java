@@ -6,6 +6,8 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 
+import it.filippor.jdt.bsp.core.BspClientManager;
+
 public class BspClientPlugin extends AbstractUIPlugin {
 
 	public static final String PLUGIN_ID = "it.filippor.jdt.bsp.ui";

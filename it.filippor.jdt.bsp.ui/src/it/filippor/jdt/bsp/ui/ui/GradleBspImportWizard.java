@@ -9,9 +9,9 @@ import org.eclipse.ui.IWorkbench;
 import org.osgi.service.prefs.BackingStoreException;
 import org.osgi.service.prefs.Preferences;
 
-import it.filippor.jdt.bsp.ui.BspClientManager;
+import it.filippor.jdt.bsp.core.BspClientManager;
+import it.filippor.jdt.bsp.core.BspPreferenceInitializer;
 import it.filippor.jdt.bsp.ui.BspClientPlugin;
-import it.filippor.jdt.bsp.ui.BspPreferenceInitializer;
 
 public class GradleBspImportWizard extends Wizard implements IImportWizard {
 
@@ -30,7 +30,7 @@ public class GradleBspImportWizard extends Wizard implements IImportWizard {
 
 	@Override
 	public boolean performFinish() {
-		Preferences prefs = InstanceScope.INSTANCE.getNode(BspClientPlugin.PLUGIN_ID);
+		Preferences prefs = InstanceScope.INSTANCE.getNode(BspClientManager.CORE_PLUGIN_ID);
 		prefs.put(BspPreferenceInitializer.PREF_COMMAND_LINE, this.page.getCommandLine());
 		prefs.put(BspPreferenceInitializer.PREF_ROOT_DIRECTORIES, this.page.getRootDirectoriesPreferenceValue());
 		prefs.put(BspPreferenceInitializer.PREF_COMMAND_MODE, this.page.getCommandMode());

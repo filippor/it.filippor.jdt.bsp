@@ -2,8 +2,9 @@ package it.filippor.jdt.bsp.ui.ui;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+
 import org.eclipse.core.resources.ResourcesPlugin;
-import org.eclipse.jface.preference.IPreferenceStore;
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.jface.wizard.WizardPage;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
@@ -15,8 +16,8 @@ import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 
-import it.filippor.jdt.bsp.ui.BspClientPlugin;
-import it.filippor.jdt.bsp.ui.BspPreferenceInitializer;
+import it.filippor.jdt.bsp.core.BspClientManager;
+import it.filippor.jdt.bsp.core.BspPreferenceInitializer;
 
 class GradleBspImportWizardPage extends WizardPage {
 
@@ -148,8 +149,7 @@ class GradleBspImportWizardPage extends WizardPage {
 	}
 
 	private void initializeDefaults() {
-		IPreferenceStore store = BspClientPlugin.getDefault().getPreferenceStore();
-		String mode = store.getString(BspPreferenceInitializer.PREF_COMMAND_MODE);
+		String mode = readPreference(BspPreferenceInitializer.PREF_COMMAND_MODE, "");
 		if (mode == null || mode.isBlank()) {
 			mode = System.getProperty("os.name", "").toLowerCase().contains("win") ? MODE_WRAPPER : MODE_SYSTEM;
 		}
@@ -162,16 +162,17 @@ class GradleBspImportWizardPage extends WizardPage {
 			this.systemModeButton.setSelection(true);
 		}
 
-		String executablePath = store.getString(BspPreferenceInitializer.PREF_GRADLE_EXECUTABLE_PATH);
+		String executablePath = readPreference(BspPreferenceInitializer.PREF_GRADLE_EXECUTABLE_PATH, "");
 		this.executablePathText.setText(executablePath == null ? "" : executablePath);
 
-		String commandLine = store.getString(BspPreferenceInitializer.PREF_COMMAND_LINE);
+		String commandLine = readPreference(BspPreferenceInitializer.PREF_COMMAND_LINE,
+				BspPreferenceInitializer.DEFAULT_COMMAND_LINE);
 		if (commandLine == null || commandLine.isBlank()) {
 			commandLine = BspPreferenceInitializer.DEFAULT_COMMAND_LINE;
 		}
 		this.commandLineText.setText(commandLine);
 
-		String currentRoots = store.getString(BspPreferenceInitializer.PREF_ROOT_DIRECTORIES);
+		String currentRoots = readPreference(BspPreferenceInitializer.PREF_ROOT_DIRECTORIES, "");
 		String rootDirectory = ResourcesPlugin.getWorkspace().getRoot().getLocation().toOSString();
 		if (currentRoots != null && !currentRoots.isBlank()) {
 			for (String candidate : currentRoots.split("[;\\r\\n]+")) {
@@ -306,5 +307,11 @@ class GradleBspImportWizardPage extends WizardPage {
 
 	private String getRootDirectory() {
 		return this.rootDirectoryText.getText().trim();
+	}
+
+	private static String readPreference(String key, String defaultValue) {
+		String value = Platform.getPreferencesService().getString(BspClientManager.CORE_PLUGIN_ID, key, defaultValue,
+				null);
+		return value == null ? defaultValue : value;
 	}
 }

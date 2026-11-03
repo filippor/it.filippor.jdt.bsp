@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.core.model;
+package it.filippor.jdt.bsp.core;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -10,10 +10,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import it.filippor.jdt.bsp.core.BspModuleProjectNature;
-import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
-import it.filippor.jdt.bsp.core.BspRootProjectNature;
-import it.filippor.jdt.bsp.core.BspSourceSetProjectNature;
+import it.filippor.jdt.bsp.core.internal.BspClasspathMapper;
+import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
+
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.service.prefs.Preferences;

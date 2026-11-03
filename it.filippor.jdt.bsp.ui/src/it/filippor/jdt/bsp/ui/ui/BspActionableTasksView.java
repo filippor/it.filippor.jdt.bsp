@@ -24,8 +24,8 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.ui.part.ViewPart;
 
-import it.filippor.jdt.bsp.ui.BspActionableTaskItem;
-import it.filippor.jdt.bsp.ui.BspClientManager;
+import it.filippor.jdt.bsp.core.BspActionableTaskItem;
+import it.filippor.jdt.bsp.core.BspClientManager;
 import it.filippor.jdt.bsp.ui.BspClientPlugin;
 
 public class BspActionableTasksView extends ViewPart {

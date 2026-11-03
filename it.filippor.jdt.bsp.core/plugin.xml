@@ -2,6 +2,13 @@
 <?eclipse version="3.0"?>
 <plugin>
 
+   <extension
+         point="org.eclipse.core.runtime.preferences">
+      <initializer
+            class="it.filippor.jdt.bsp.core.BspPreferenceInitializer">
+      </initializer>
+   </extension>
+
    <extension-point
          id="classpathEnricher"
          name="BSP Classpath Enricher"

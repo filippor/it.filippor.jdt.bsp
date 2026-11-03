@@ -3,13 +3,6 @@
 <plugin>
 
    <extension
-         point="org.eclipse.core.runtime.preferences">
-      <initializer
-            class="it.filippor.jdt.bsp.ui.BspPreferenceInitializer">
-      </initializer>
-   </extension>
-
-   <extension
          point="org.eclipse.ui.startup">
       <startup
             class="it.filippor.jdt.bsp.ui.BspEarlyStartup">

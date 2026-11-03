@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.core.model;
+package it.filippor.jdt.bsp.core.internal;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -7,6 +7,8 @@ import java.util.List;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.Platform;
+
+import it.filippor.jdt.bsp.core.model.BspClasspathEnricher;
 
 final class BspClasspathEnricherRegistry {
 
