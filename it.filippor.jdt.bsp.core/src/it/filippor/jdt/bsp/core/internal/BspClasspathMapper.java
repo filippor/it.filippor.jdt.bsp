@@ -16,6 +16,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.Path;
+import org.eclipse.jdt.core.IClasspathContainer;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
@@ -36,11 +37,14 @@ public class BspClasspathMapper {
                 entries.add(JavaCore.newSourceEntry(sourceEntry));
             }
         }
+        List<IClasspathEntry> bspResolvedEntries = new ArrayList<>();
         for (IClasspathEntry cpEntry : model.compileClasspath()) {
             if (isUsableClasspathEntry(project, cpEntry)) {
-                entries.add(cpEntry);
+                bspResolvedEntries.add(cpEntry);
             }
         }
+        BspClasspathContainerState.write(project, bspResolvedEntries);
+        entries.add(JavaCore.newContainerEntry(BspClasspathContainer.CONTAINER_PATH));
         entries.add(JavaCore.newContainerEntry(Path.fromPortableString("org.eclipse.jdt.launching.JRE_CONTAINER")));
         dropBroadSourceSetLinks(project, entries, usedSourceNames, monitor);
         cleanupStaleLinkedSourceFolders(project, usedSourceNames, monitor);
@@ -54,6 +58,8 @@ public class BspClasspathMapper {
 
         // Persist .classpath so JDT builder resolves dependencies consistently across refresh/restart.
         project.setRawClasspath(entries.toArray(IClasspathEntry[]::new), outputPath, true, monitor);
+        JavaCore.setClasspathContainer(BspClasspathContainer.CONTAINER_PATH, new IJavaProject[] { project },
+            new IClasspathContainer[] { new BspClasspathContainer(project) }, monitor);
     }
 
     private static List<java.nio.file.Path> computeNonNestedSourceRoots(List<java.nio.file.Path> rawSources) {
@@ -368,4 +374,5 @@ public class BspClasspathMapper {
         }
         return true;
     }
+
 }

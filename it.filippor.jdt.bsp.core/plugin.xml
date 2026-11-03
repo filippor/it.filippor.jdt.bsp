@@ -54,4 +54,12 @@
       </runtime>
    </extension>
 
+   <extension
+         point="org.eclipse.jdt.core.classpathContainerInitializer">
+      <classpathContainerInitializer
+            class="it.filippor.jdt.bsp.core.internal.BspClasspathContainerInitializer"
+            id="it.filippor.jdt.bsp.core.BSP_CLASSPATH_CONTAINER">
+      </classpathContainerInitializer>
+   </extension>
+
 </plugin>

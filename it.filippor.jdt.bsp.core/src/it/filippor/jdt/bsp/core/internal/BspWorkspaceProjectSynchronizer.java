@@ -25,6 +25,7 @@ import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.QualifiedName;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.IClasspathContainer;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
@@ -206,9 +207,7 @@ public class BspWorkspaceProjectSynchronizer {
                     deps.add(dependencyBinding.project());
                 }
             }
-            if (!deps.isEmpty()) {
-                addProjectDependencies(binding.javaProject(), new ArrayList<>(deps), monitor);
-            }
+            addProjectDependencies(binding.javaProject(), new ArrayList<>(deps), monitor);
         }
     }
 
@@ -269,18 +268,21 @@ public class BspWorkspaceProjectSynchronizer {
     private static void addProjectDependencies(IJavaProject project, List<IProject> dependencies,
                                                IProgressMonitor monitor)
         throws JavaModelException {
+        IClasspathEntry[] containerEntries = BspClasspathContainerState.read(project);
+        List<IClasspathEntry> updated = new ArrayList<>();
+        Set<String> existing = new LinkedHashSet<>();
+        for (IClasspathEntry entry : containerEntries) {
+            if (entry.getEntryKind() == IClasspathEntry.CPE_PROJECT) {
+                continue;
+            }
+            updated.add(entry);
+        }
         if (dependencies == null || dependencies.isEmpty()) {
+            BspClasspathContainerState.write(project, updated);
+            JavaCore.setClasspathContainer(BspClasspathContainer.CONTAINER_PATH, new IJavaProject[] { project },
+                new IClasspathContainer[] { new BspClasspathContainer(project) }, monitor);
             log(IStatus.INFO, "No project dependencies to add for '" + project.getElementName() + "'.", null);
             return;
-        }
-        IClasspathEntry[] rawClasspath = project.getRawClasspath();
-        List<IClasspathEntry> updated = new ArrayList<>(List.of(rawClasspath));
-        Set<String> existing = new LinkedHashSet<>();
-        for (IClasspathEntry entry : rawClasspath) {
-            if (entry.getEntryKind() == IClasspathEntry.CPE_PROJECT) {
-                existing.add(entry.getPath()
-                                  .toString());
-            }
         }
         for (IProject dep : dependencies) {
             if (dep == null || !dep.exists() || !dep.isOpen()) {
@@ -310,7 +312,9 @@ public class BspWorkspaceProjectSynchronizer {
                     null);
             }
         }
-        project.setRawClasspath(updated.toArray(IClasspathEntry[]::new), project.getOutputLocation(), monitor);
+        BspClasspathContainerState.write(project, updated);
+        JavaCore.setClasspathContainer(BspClasspathContainer.CONTAINER_PATH, new IJavaProject[] { project },
+            new IClasspathContainer[] { new BspClasspathContainer(project) }, monitor);
     }
 
     private static void applyJavaCompliance(IJavaProject javaProject, String javaSourceLevel) {
