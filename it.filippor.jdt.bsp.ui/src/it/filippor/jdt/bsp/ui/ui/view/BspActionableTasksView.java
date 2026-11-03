@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.ui.ui;
+package it.filippor.jdt.bsp.ui.ui.view;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,8 +24,8 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.ui.part.ViewPart;
 
-import it.filippor.jdt.bsp.core.BspActionableTaskItem;
 import it.filippor.jdt.bsp.core.BspClientManager;
+import it.filippor.jdt.bsp.core.model.BspActionableTaskItem;
 import it.filippor.jdt.bsp.ui.BspClientPlugin;
 
 public class BspActionableTasksView extends ViewPart {

@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.core;
+package it.filippor.jdt.bsp.core.model;
 
 import java.nio.file.Path;
 import java.util.List;

@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.core;
+package it.filippor.jdt.bsp.core.nature;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectNature;

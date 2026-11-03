@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.ui;
+package it.filippor.jdt.bsp.ui.ui.view;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

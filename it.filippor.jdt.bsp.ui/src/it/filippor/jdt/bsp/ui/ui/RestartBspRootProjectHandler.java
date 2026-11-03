@@ -8,7 +8,7 @@ import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.handlers.HandlerUtil;
 
 import it.filippor.jdt.bsp.core.BspClientManager;
-import it.filippor.jdt.bsp.core.BspRootProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspRootProjectNature;
 
 public class RestartBspRootProjectHandler extends AbstractHandler {
 

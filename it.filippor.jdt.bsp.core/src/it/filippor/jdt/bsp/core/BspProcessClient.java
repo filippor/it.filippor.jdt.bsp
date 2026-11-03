@@ -46,6 +46,7 @@ import ch.epfl.scala.bsp4j.TestResult;
 import ch.epfl.scala.bsp4j.WorkspaceBuildTargetsResult;
 import it.filippor.jdt.bsp.core.internal.BspWorkspaceModelResolver;
 import it.filippor.jdt.bsp.core.model.BspBuildTargetActionModel;
+import it.filippor.jdt.bsp.core.model.BspConnectionConfig;
 import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
 import it.filippor.jdt.bsp.core.protocol.Bsp4jSupport;
 import it.filippor.jdt.bsp.core.protocol.BspExtendedBuildServer;

@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.ui.ui;
+package it.filippor.jdt.bsp.ui.ui.property;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,9 +16,9 @@ import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.dialogs.PropertyPage;
 import org.osgi.service.prefs.BackingStoreException;
 
+import it.filippor.jdt.bsp.core.BspPreferenceInitializer;
 import it.filippor.jdt.bsp.core.BspProjectSettingsStore;
 import it.filippor.jdt.bsp.ui.BspClientPlugin;
-import it.filippor.jdt.bsp.ui.BspPreferenceInitializer;
 
 public class BspRootProjectPropertyPage extends PropertyPage {
 	private static final String COMMAND_VARIABLE_HINT = String.join(System.lineSeparator(),

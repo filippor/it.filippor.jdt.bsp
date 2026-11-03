@@ -1,22 +1,25 @@
-package it.filippor.jdt.bsp.ui.ui;
+package it.filippor.jdt.bsp.ui.ui.decorators;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ProjectScope;
+import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jface.viewers.ILabelDecorator;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.swt.graphics.Image;
 import org.osgi.service.prefs.Preferences;
 
-import it.filippor.jdt.bsp.core.BspModuleProjectNature;
-import it.filippor.jdt.bsp.core.BspRootProjectNature;
-import it.filippor.jdt.bsp.core.BspSourceSetProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspModuleProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspRootProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspSourceSetProjectNature;
 
 public class BspProjectLabelDecorator extends LabelProvider implements ILabelDecorator {
 
 	@Override
 	public String decorateText(String text, Object element) {
-		if (!(element instanceof IProject project)) {
+		IProject project = resolveProject(element);
+		if (project == null) {
 			return null;
 		}
 		try {
@@ -30,6 +33,19 @@ public class BspProjectLabelDecorator extends LabelProvider implements ILabelDec
 			}
 		} catch (Exception e) {
 			// Best-effort decoration only.
+		}
+		return null;
+	}
+
+	private static IProject resolveProject(Object element) {
+		if (element instanceof IProject project) {
+			return project;
+		}
+		if (element instanceof IJavaProject javaProject) {
+			return javaProject.getProject();
+		}
+		if (element instanceof IAdaptable adaptable) {
+			return adaptable.getAdapter(IProject.class);
 		}
 		return null;
 	}

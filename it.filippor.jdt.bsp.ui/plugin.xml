@@ -52,7 +52,7 @@
             commandId="it.filippor.jdt.bsp.ui.commands.restartRoot">
       </handler>
       <handler
-            class="it.filippor.jdt.bsp.ui.ui.ShowBspActionableTasksViewHandler"
+            class="it.filippor.jdt.bsp.ui.ui.view.ShowBspActionableTasksViewHandler"
             commandId="it.filippor.jdt.bsp.ui.commands.showActionableTasks">
       </handler>
    </extension>
@@ -112,7 +112,7 @@
       </category>
       <view
             category="it.filippor.jdt.bsp.ui.views.category"
-            class="it.filippor.jdt.bsp.ui.ui.BspActionableTasksView"
+            class="it.filippor.jdt.bsp.ui.ui.view.BspActionableTasksView"
             id="it.filippor.jdt.bsp.ui.views.actionableTasks"
             name="BSP Actionable Tasks"
             restorable="true">
@@ -123,7 +123,7 @@
          point="org.eclipse.ui.importWizards">
       <wizard
             category="org.eclipse.ui.Basic"
-            class="it.filippor.jdt.bsp.ui.ui.GradleBspImportWizard"
+            class="it.filippor.jdt.bsp.ui.ui.wizard.GradleBspImportWizard"
             id="it.filippor.jdt.bsp.ui.wizard.import.gradleBsp"
             name="BSP Import">
       </wizard>
@@ -131,7 +131,7 @@
 
 <extension point="org.eclipse.ui.propertyPages">
    <page
-         class="it.filippor.jdt.bsp.ui.ui.BspRootProjectPropertyPage"
+         class="it.filippor.jdt.bsp.ui.ui.property.BspRootProjectPropertyPage"
          id="it.filippor.jdt.bsp.ui.propertyPage.bspRoot"
          name="BSP Root">
       <enabledWhen>
@@ -150,15 +150,20 @@
    <extension
          point="org.eclipse.ui.decorators">
       <decorator
-            class="it.filippor.jdt.bsp.ui.ui.BspProjectLabelDecorator"
+            class="it.filippor.jdt.bsp.ui.ui.decorators.BspProjectLabelDecorator"
             id="it.filippor.jdt.bsp.ui.decorators.projectLabel"
             label="BSP Project Folder Decorator"
             lightweight="false"
             state="true">
          <enablement>
-            <objectClass
-                  name="org.eclipse.core.resources.IProject">
-            </objectClass>
+            <or>
+               <objectClass
+                     name="org.eclipse.core.resources.IProject">
+               </objectClass>
+               <objectClass
+                     name="org.eclipse.jdt.core.IJavaProject">
+               </objectClass>
+            </or>
          </enablement>
       </decorator>
    </extension>
@@ -167,9 +172,9 @@
          point="org.eclipse.ui.navigator.navigatorContent">
       <navigatorContent
             activeByDefault="true"
-            contentProvider="it.filippor.jdt.bsp.ui.ui.BspSourceSetContentProvider"
+            contentProvider="it.filippor.jdt.bsp.ui.ui.decorators.BspSourceSetContentProvider"
             id="it.filippor.jdt.bsp.ui.navigator.buildTargets"
-            labelProvider="it.filippor.jdt.bsp.ui.ui.BspSourceSetLabelProvider"
+            labelProvider="it.filippor.jdt.bsp.ui.ui.decorators.BspSourceSetLabelProvider"
             name="BSP Build Targets"
             priority="normal">
          <triggerPoints>

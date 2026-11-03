@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.core;
+package it.filippor.jdt.bsp.core.model;
 
 public record BspActionableTaskItem(
         String root,

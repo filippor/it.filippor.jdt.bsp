@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.ui.ui;
+package it.filippor.jdt.bsp.ui.ui.wizard;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

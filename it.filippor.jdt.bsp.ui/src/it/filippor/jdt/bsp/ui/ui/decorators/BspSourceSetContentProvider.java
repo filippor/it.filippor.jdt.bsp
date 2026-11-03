@@ -1,4 +1,4 @@
-package it.filippor.jdt.bsp.ui.ui;
+package it.filippor.jdt.bsp.ui.ui.decorators;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -13,9 +13,9 @@ import org.eclipse.ui.navigator.ICommonContentExtensionSite;
 import org.eclipse.ui.navigator.ICommonContentProvider;
 import org.osgi.service.prefs.Preferences;
 
-import it.filippor.jdt.bsp.core.BspModuleProjectNature;
-import it.filippor.jdt.bsp.core.BspRootProjectNature;
-import it.filippor.jdt.bsp.core.BspSourceSetProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspModuleProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspRootProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspSourceSetProjectNature;
 
 public class BspSourceSetContentProvider implements ICommonContentProvider {
 

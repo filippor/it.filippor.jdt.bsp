@@ -21,7 +21,7 @@
          point="org.eclipse.core.resources.natures">
       <runtime>
          <run
-               class="it.filippor.jdt.bsp.core.BspRootProjectNature">
+               class="it.filippor.jdt.bsp.core.nature.BspRootProjectNature">
          </run>
       </runtime>
    </extension>
@@ -32,7 +32,7 @@
          point="org.eclipse.core.resources.natures">
       <runtime>
          <run
-               class="it.filippor.jdt.bsp.core.BspModuleProjectNature">
+               class="it.filippor.jdt.bsp.core.nature.BspModuleProjectNature">
          </run>
       </runtime>
    </extension>
@@ -43,7 +43,7 @@
          point="org.eclipse.core.resources.natures">
       <runtime>
          <run
-               class="it.filippor.jdt.bsp.core.BspSourceSetProjectNature">
+               class="it.filippor.jdt.bsp.core.nature.BspSourceSetProjectNature">
          </run>
       </runtime>
    </extension>

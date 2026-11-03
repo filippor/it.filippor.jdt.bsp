@@ -1,6 +1,7 @@
 package it.filippor.jdt.bsp.ui.classpath;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.file.Files;
@@ -445,7 +446,8 @@ final class GradleApiClasspathAugmenter {
             Process process = processBuilder.start();
 
             List<Path> resolved = new ArrayList<>();
-            try (Stream<String> lines = new BufferedReader(new InputStreamReader(process.getInputStream())).lines()) {
+            try (InputStream inputStream = process.getInputStream();
+					Stream<String> lines = new BufferedReader(new InputStreamReader(inputStream)).lines()) {
                 lines.filter(line -> line != null && line.startsWith(DEPENDENCY_PREFIX))
                      .map(line -> line.substring(DEPENDENCY_PREFIX.length()))
                      .map(String::trim)

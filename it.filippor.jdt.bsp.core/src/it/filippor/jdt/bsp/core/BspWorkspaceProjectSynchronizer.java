@@ -12,6 +12,9 @@ import java.util.Set;
 
 import it.filippor.jdt.bsp.core.internal.BspClasspathMapper;
 import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
+import it.filippor.jdt.bsp.core.nature.BspModuleProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspRootProjectNature;
+import it.filippor.jdt.bsp.core.nature.BspSourceSetProjectNature;
 
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
@@ -490,13 +493,13 @@ public class BspWorkspaceProjectSynchronizer {
     }
 
     private static String toModuleProjectName(String rootProjectName, String moduleName) {
-        String moduleSegment = moduleName == null || moduleName.isBlank() ? "root" : moduleName.replace('/', '_');
-        String child = rootProjectName + "_" + sanitizeProjectName(moduleSegment);
+        String moduleSegment = moduleName == null || moduleName.isBlank() ? "root" : moduleName.replace("/", "__");
+        String child = rootProjectName + "__" + sanitizeProjectName(moduleSegment);
         return truncateWithHash(child, 100);
     }
 
     private static String toSourceSetProjectName(String moduleProjectName, String sourceSetName) {
-        String child = moduleProjectName + "_" + sanitizeProjectName(sourceSetName);
+        String child = moduleProjectName + "__" + sanitizeProjectName(sourceSetName);
         return truncateWithHash(child, 110);
     }
 
@@ -647,7 +650,7 @@ public class BspWorkspaceProjectSynchronizer {
         if (text == null || text.isBlank()) {
             return "bsp_project";
         }
-        String candidate = text.replaceAll("[^A-Za-z0-9._-]", "_");
+        String candidate = text.replaceAll("[^A-Za-z0-9._:-]", "_");
         return candidate.isBlank() ? "bsp_project" : candidate;
     }
 

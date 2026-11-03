@@ -3,6 +3,8 @@ package it.filippor.jdt.bsp.core;
 import org.osgi.service.prefs.BackingStoreException;
 import org.osgi.service.prefs.Preferences;
 
+import it.filippor.jdt.bsp.core.nature.BspRootProjectNature;
+
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ProjectScope;
 

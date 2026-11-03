@@ -19,8 +19,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import it.filippor.jdt.bsp.core.model.BspActionableTaskItem;
 import it.filippor.jdt.bsp.core.model.BspBuildTargetActionModel;
+import it.filippor.jdt.bsp.core.model.BspConnectionConfig;
 import it.filippor.jdt.bsp.core.model.BspSourceSetModel;
+import it.filippor.jdt.bsp.core.nature.BspRootProjectNature;
 
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
