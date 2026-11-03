@@ -62,11 +62,18 @@ public final class BspClientManager {
     private static final String DEFAULT_BSP_LAUNCHER_CLASS = "com.microsoft.java.bs.core.Launcher";
     private static final Pattern BRACED_ENV_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
     private static final Pattern WINDOWS_ENV_PATTERN = Pattern.compile("%([^%]+)%");
+    private static final String DEBUG_OPTION = CORE_PLUGIN_ID + "/debug";
 
     private static final BspClientManager INSTANCE = new BspClientManager();
 
     private final Map<Path, BspProcessClient> clients = new ConcurrentHashMap<>();
     private final BspWorkspaceProjectSynchronizer synchronizer = new BspWorkspaceProjectSynchronizer();
+    private volatile BspOutputSink outputSink;
+
+    @FunctionalInterface
+    public interface BspOutputSink {
+        void publish(String rootLabel, String message, boolean error);
+    }
 
     private BspClientManager() {
         // Singleton
@@ -74,6 +81,10 @@ public final class BspClientManager {
 
     public static BspClientManager getInstance() {
         return INSTANCE;
+    }
+
+    public void setOutputSink(BspOutputSink outputSink) {
+        this.outputSink = outputSink;
     }
 
     public void startFromPreferences() {
@@ -636,11 +647,37 @@ public final class BspClientManager {
     }
 
     private static void logInfo(String message) {
-        log(IStatus.INFO, message, null);
+        BspClientManager manager = getInstance();
+        manager.publishToSink(null, message, false);
+        if (isDebugEnabled()) {
+            log(IStatus.INFO, message, null);
+        }
     }
 
     private static void logError(String message, Throwable throwable) {
+        getInstance().publishToSink(null, message, true);
         log(IStatus.ERROR, message, throwable);
+    }
+
+    private void publishToSink(String rootLabel, String message, boolean error) {
+        BspOutputSink sink = this.outputSink;
+        if (sink == null || message == null || message.isBlank()) {
+            return;
+        }
+        try {
+            sink.publish(rootLabel, message, error);
+        } catch (Exception e) {
+            // Never fail BSP processing due to sink failures.
+        }
+    }
+
+    private static boolean isDebugEnabled() {
+        try {
+            String value = Platform.getDebugOption(DEBUG_OPTION);
+            return "true".equalsIgnoreCase(value);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static void log(int severity, String message, Throwable throwable) {

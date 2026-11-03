@@ -1,9 +1,12 @@
 package it.filippor.jdt.bsp.ui.ui.decorators;
 
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jface.viewers.ILabelDecorator;
 import org.eclipse.jface.viewers.LabelProvider;
@@ -19,22 +22,30 @@ public class BspProjectLabelDecorator extends LabelProvider implements ILabelDec
 	@Override
 	public String decorateText(String text, Object element) {
 		IProject project = resolveProject(element);
+		if (project == null && isRequiredProjectWrapper(element) && looksLikeBspGeneratedProjectName(text)) {
+			project = resolveProjectFromDisplayedText(text);
+		}
 		if (project == null) {
 			return null;
 		}
 		try {
-			if (isModuleProject(project)) {
-				String shortName = moduleDisplayName(project, text);
-				return shortName.equals(text) ? null : shortName;
-			}
 			if (isSourceSetProject(project)) {
 				String shortName = sourceSetDisplayName(project, text);
+				return shortName.equals(text) ? null : shortName;
+			}
+			if (isModuleProject(project)) {
+				String shortName = moduleDisplayName(project, text);
 				return shortName.equals(text) ? null : shortName;
 			}
 		} catch (Exception e) {
 			// Best-effort decoration only.
 		}
 		return null;
+	}
+
+	private static boolean isRequiredProjectWrapper(Object element) {
+		return element != null && "org.eclipse.jdt.internal.ui.packageview.ClassPathContainer$RequiredProjectWrapper"
+			.equals(element.getClass().getName());
 	}
 
 	private static IProject resolveProject(Object element) {
@@ -44,10 +55,64 @@ public class BspProjectLabelDecorator extends LabelProvider implements ILabelDec
 		if (element instanceof IJavaProject javaProject) {
 			return javaProject.getProject();
 		}
-		if (element instanceof IAdaptable adaptable) {
-			return adaptable.getAdapter(IProject.class);
+		if (element instanceof IClasspathEntry classpathEntry) {
+			return resolveProjectFromClasspathEntry(classpathEntry);
 		}
+		if (element instanceof IAdaptable adaptable) {
+			IClasspathEntry classpathEntry = adaptable.getAdapter(IClasspathEntry.class);
+			if (classpathEntry != null) {
+				IProject classpathProject = resolveProjectFromClasspathEntry(classpathEntry);
+				if (classpathProject != null) {
+					return classpathProject;
+				}
+			}
+			if (isRequiredProjectWrapper(element)) {
+	            return adaptable.getAdapter(IProject.class);
+	        }
+		}
+
 		return null;
+	}
+
+	private static IProject resolveProjectFromClasspathEntry(IClasspathEntry classpathEntry) {
+		if (classpathEntry == null || classpathEntry.getEntryKind() != IClasspathEntry.CPE_PROJECT) {
+			return null;
+		}
+		IPath path = classpathEntry.getPath();
+		if (path == null || path.segmentCount() == 0) {
+			return null;
+		}
+		String projectName = path.segment(0);
+		IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(projectName);
+		return project.exists() ? project : null;
+	}
+
+	private static boolean looksLikeBspGeneratedProjectName(String text) {
+		if (text == null || text.isBlank()) {
+			return false;
+		}
+		return text.indexOf("__") > 0 && text.indexOf('/') < 0 && text.indexOf(' ') < 0;
+	}
+
+	private static IProject resolveProjectFromDisplayedText(String text) {
+		if (text == null || text.isBlank()) {
+			return null;
+		}
+		String candidate = text;
+		int pathSuffix = candidate.indexOf(" - ");
+		if (pathSuffix > 0) {
+			candidate = candidate.substring(0, pathSuffix);
+		}
+		int bracketSuffix = candidate.indexOf(" [");
+		if (bracketSuffix > 0) {
+			candidate = candidate.substring(0, bracketSuffix);
+		}
+		candidate = candidate.trim();
+		if (candidate.isEmpty()) {
+			return null;
+		}
+		IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(candidate);
+		return project.exists() ? project : null;
 	}
 
 	@Override

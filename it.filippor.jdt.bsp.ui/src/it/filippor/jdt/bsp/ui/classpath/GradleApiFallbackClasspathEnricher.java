@@ -465,12 +465,22 @@ public class GradleApiFallbackClasspathEnricher implements BspClasspathEnricher 
 
             boolean finished = process.waitFor(120, TimeUnit.SECONDS);
             if (!finished || process.exitValue() != 0) {
-                logInfo("Gradle transitive resolution failed for " + gradleVersion + " at " + projectRoot);
+                String reason = !finished
+                    ? "command timed out after 120s"
+                    : "command exited with code " + process.exitValue();
+                logError("Gradle transitive classpath fallback failed for version " + gradleVersion
+                    + " at " + projectRoot + ": " + reason
+                    + ". Ensure Gradle wrapper is present or 'gradle' is available on PATH and points to a JDK installation.",
+                    null);
                 return Collections.emptyList();
             }
             return new ArrayList<>(resolved);
         } catch (Exception e) {
-            logInfo("Gradle transitive resolution error for " + gradleVersion + ": " + e.getMessage());
+            String detail = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            logError("Gradle transitive classpath fallback failed for version " + gradleVersion
+                + " at " + projectRoot + ": " + detail
+                + ". Ensure Gradle wrapper is present or 'gradle' is available on PATH and points to a JDK installation.",
+                e);
             return Collections.emptyList();
         } finally {
             if (initScript != null) {
@@ -535,10 +545,10 @@ allprojects {
 """;
     }
 
-    private static void logInfo(String message) {
+    private static void logError(String message, Throwable throwable) {
         Bundle bundle = FrameworkUtil.getBundle(GradleApiFallbackClasspathEnricher.class);
         if (bundle != null) {
-            Platform.getLog(bundle).log(new Status(IStatus.INFO, UI_PLUGIN_ID, message));
+            Platform.getLog(bundle).log(new Status(IStatus.ERROR, UI_PLUGIN_ID, message, throwable));
         }
     }
 }

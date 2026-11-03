@@ -3,14 +3,17 @@ package it.filippor.jdt.bsp.ui;
 import org.osgi.framework.BundleContext;
 
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 
 import it.filippor.jdt.bsp.core.BspClientManager;
+import it.filippor.jdt.bsp.ui.ui.view.BspConsole;
 
 public class BspClientPlugin extends AbstractUIPlugin {
 
 	public static final String PLUGIN_ID = "it.filippor.jdt.bsp.ui";
+	private static final String DEBUG_OPTION = PLUGIN_ID + "/debug";
 
 	private static BspClientPlugin plugin;
 
@@ -18,11 +21,14 @@ public class BspClientPlugin extends AbstractUIPlugin {
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
 		plugin = this;
+		BspClientManager.getInstance().setOutputSink((rootLabel, message, error) ->
+			BspConsole.write(rootLabel, message, error));
 	}
 
 	@Override
 	public void stop(BundleContext context) throws Exception {
 		try {
+			BspClientManager.getInstance().setOutputSink(null);
 			BspClientManager.getInstance().stop();
 		} finally {
 			plugin = null;
@@ -35,7 +41,7 @@ public class BspClientPlugin extends AbstractUIPlugin {
 	}
 
 	public static void logInfo(String message) {
-		if (plugin != null) {
+		if (plugin != null && isDebugEnabled()) {
 			plugin.getLog().log(new Status(IStatus.INFO, PLUGIN_ID, message));
 		}
 	}
@@ -43,6 +49,14 @@ public class BspClientPlugin extends AbstractUIPlugin {
 	public static void logError(String message, Throwable throwable) {
 		if (plugin != null) {
 			plugin.getLog().log(new Status(IStatus.ERROR, PLUGIN_ID, message, throwable));
+		}
+	}
+
+	private static boolean isDebugEnabled() {
+		try {
+			return "true".equalsIgnoreCase(Platform.getDebugOption(DEBUG_OPTION));
+		} catch (Exception e) {
+			return false;
 		}
 	}
 }

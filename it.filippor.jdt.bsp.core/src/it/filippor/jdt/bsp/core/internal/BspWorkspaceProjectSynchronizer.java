@@ -1,6 +1,7 @@
 package it.filippor.jdt.bsp.core.internal;
 
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -12,6 +13,7 @@ import java.util.Set;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
+import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceStatus;
 import org.eclipse.core.resources.IWorkspaceRoot;
@@ -50,6 +52,8 @@ public class BspWorkspaceProjectSynchronizer {
     private final List<BspProjectConfigurer> projectConfigurers = BspProjectConfigurerRegistry.loadConfigurers();
     private static final String BSP_META = "it.filippor.jdt.bsp.core";
     private static final String CORE_PLUGIN_ID = "it.filippor.jdt.bsp.core";
+    private static final String DEBUG_OPTION = CORE_PLUGIN_ID + "/debug";
+    private static final String JDK_HINT_PREFIX = "JDK required: Eclipse runtime Java is missing ct.sym";
     private static final QualifiedName BSP_COMMAND = new QualifiedName(BSP_META, "commandLine");
 
     public IProject ensureRootProject(BspProcessClient bspClient, String rootFolder, String commandLine,
@@ -142,6 +146,7 @@ public class BspWorkspaceProjectSynchronizer {
                         e);
                 }
                 ensureJavaNature(buildTargetProject, monitor);
+                ensureJdkHintMarker(buildTargetProject);
                 IJavaProject javaProject = JavaCore.create(buildTargetProject);
                 this.classpathMapper.apply(javaProject, sourceSet, monitor);
                 applyJavaCompliance(javaProject, sourceSet.javaSourceLevel());
@@ -489,13 +494,86 @@ public class BspWorkspaceProjectSynchronizer {
         }
     }
 
+    private static void ensureJdkHintMarker(IProject project) {
+        if (project == null || !project.exists()) {
+            return;
+        }
+        try {
+            if (runtimeJavaHasCtSym()) {
+                clearJdkHintMarkers(project);
+                return;
+            }
+            if (hasJdkHintMarker(project)) {
+                return;
+            }
+            String javaHome = System.getProperty("java.home", "<unknown>");
+            IMarker marker = project.createMarker(IMarker.PROBLEM);
+            marker.setAttribute(IMarker.SEVERITY, IMarker.SEVERITY_ERROR);
+            marker.setAttribute(IMarker.MESSAGE,
+                JDK_HINT_PREFIX + " at '" + javaHome
+                    + "/lib/ct.sym'. Configure a full JDK (not a JRE) and rebuild the project.");
+            marker.setAttribute(IMarker.LOCATION, project.getFullPath().toString());
+            marker.setAttribute(IMarker.SOURCE_ID, CORE_PLUGIN_ID);
+        } catch (Exception e) {
+            // Best-effort hint marker only.
+        }
+    }
+
+    private static boolean runtimeJavaHasCtSym() {
+        String javaHome = System.getProperty("java.home");
+        if (javaHome == null || javaHome.isBlank()) {
+            return false;
+        }
+        return Files.isRegularFile(java.nio.file.Path.of(javaHome, "lib", "ct.sym"));
+    }
+
+    private static boolean hasJdkHintMarker(IProject project) throws CoreException {
+        IMarker[] markers = project.findMarkers(IMarker.PROBLEM, false, IResource.DEPTH_ZERO);
+        if (markers == null) {
+            return false;
+        }
+        for (IMarker marker : markers) {
+            String source = marker.getAttribute(IMarker.SOURCE_ID, "");
+            String message = marker.getAttribute(IMarker.MESSAGE, "");
+            if (CORE_PLUGIN_ID.equals(source) && message.startsWith(JDK_HINT_PREFIX)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void clearJdkHintMarkers(IProject project) throws CoreException {
+        IMarker[] markers = project.findMarkers(IMarker.PROBLEM, false, IResource.DEPTH_ZERO);
+        if (markers == null) {
+            return;
+        }
+        for (IMarker marker : markers) {
+            String source = marker.getAttribute(IMarker.SOURCE_ID, "");
+            String message = marker.getAttribute(IMarker.MESSAGE, "");
+            if (CORE_PLUGIN_ID.equals(source) && message.startsWith(JDK_HINT_PREFIX)) {
+                marker.delete();
+            }
+        }
+    }
+
     private static void log(int severity, String message, Throwable error) {
+        if (severity == IStatus.INFO && !isDebugEnabled()) {
+            return;
+        }
         Bundle bundle = FrameworkUtil.getBundle(BspWorkspaceProjectSynchronizer.class);
         if (bundle == null) {
             return;
         }
         Platform.getLog(bundle)
                 .log(new Status(severity, CORE_PLUGIN_ID, message, error));
+    }
+
+    private static boolean isDebugEnabled() {
+        try {
+            return "true".equalsIgnoreCase(Platform.getDebugOption(DEBUG_OPTION));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static BuildServer toBuildServer(BspProcessClient bspClient) {

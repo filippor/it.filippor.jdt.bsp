@@ -163,6 +163,15 @@
                <objectClass
                      name="org.eclipse.jdt.core.IJavaProject">
                </objectClass>
+               <objectClass
+                     name="org.eclipse.jdt.core.IClasspathEntry">
+               </objectClass>
+               <objectClass
+                     name="org.eclipse.core.runtime.IAdaptable">
+               </objectClass>
+               <objectClass
+                     name="org.eclipse.jdt.internal.ui.packageview.ClassPathContainer$RequiredProjectWrapper">
+               </objectClass>
             </or>
          </enablement>
       </decorator>

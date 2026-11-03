@@ -31,8 +31,9 @@ public final class BspConsole {
 				return;
 			}
 			MessageConsole console = getOrCreateConsole(root);
-			MessageConsoleStream stream = error ? console.newMessageStream() : console.newMessageStream();
-			stream.println(message);
+			ConsolePlugin.getDefault().getConsoleManager().showConsoleView(console);
+			MessageConsoleStream stream = console.newMessageStream();
+			stream.println(error ? "[ERROR] " + message : message);
 			try {
 				stream.close();
 			} catch (Exception e) {
