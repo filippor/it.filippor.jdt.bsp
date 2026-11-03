@@ -1,13 +1,19 @@
 package it.filippor.jdt.bsp.core.model;
 
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,9 +31,12 @@ public final class GradleApiClasspathAugmenter {
 
     private static final String CORE_PLUGIN_ID = "it.filippor.jdt.bsp.core";
     private static final Pattern GRADLE_VERSIONED_JAR = Pattern.compile(
-        "gradle-(?:tooling-api|api|core-api|core)-([0-9][^/\\\\]*)\\.jar$");
+        "gradle-(?:tooling-api|api)-([0-9][^/\\\\]*)\\.jar$");
+    private static final Pattern GRADLE_TOOLING_API_JAR = Pattern.compile("gradle-tooling-api-([0-9][^/\\\\]*)\\.jar$");
     private static final Pattern GRADLE_WRAPPER_DISTRIBUTION = Pattern.compile(
         "gradle-([0-9][0-9A-Za-z+_.-]*)-(?:bin|all)\\.zip$");
+    private static final String DEPENDENCY_PREFIX = "BSP_DEP=";
+    private static final Map<String, List<Path>> TOOLING_TRANSITIVE_CACHE = new ConcurrentHashMap<>();
 
     private GradleApiClasspathAugmenter() {
     }
@@ -44,25 +53,35 @@ public final class GradleApiClasspathAugmenter {
         boolean hasGradleApi = containsLibraryFileName(classpath,
             fileName -> fileName.matches("gradle-api-[0-9].*\\.jar")
                 && !fileName.startsWith("gradle-api-metadata-"));
-        boolean hasGradleCoreApi = containsLibraryFileName(classpath,
-            fileName -> fileName.matches("gradle-core-api-[0-9].*\\.jar"));
-        boolean hasGradleCore = containsLibraryFileName(classpath,
-            fileName -> fileName.matches("gradle-core-[0-9].*\\.jar"));
-        boolean hasGroovy = containsLibraryFileName(classpath,
-            fileName -> fileName.startsWith("groovy-") && fileName.endsWith(".jar"));
         logInfo("Gradle enrichment start for " + sourceSetId + ": pluginMarker=" + gradlePluginModule
-            + ", toolingApi=" + hasToolingApi + ", hasApi=" + hasGradleApi + ", hasCoreApi=" + hasGradleCoreApi
-            + ", hasCore=" + hasGradleCore + ", hasGroovy=" + hasGroovy);
-        if (hasGradleApi && hasGradleCoreApi && hasGradleCore && hasGroovy) {
+            + ", toolingApi=" + hasToolingApi + ", hasApi=" + hasGradleApi);
+        if (hasGradleApi && !hasToolingApi) {
             return classpath;
         }
 
         LinkedHashSet<IClasspathEntry> merged = new LinkedHashSet<>(classpath);
         List<String> versionCandidates = resolveGradleVersionCandidates(moduleRoot, classpath);
         logInfo("Gradle enrichment versions for " + sourceSetId + ": " + versionCandidates);
+        if (hasToolingApi) {
+            Optional<String> toolingVersion = detectToolingApiVersionFromClasspath(classpath);
+            String resolutionVersion = toolingVersion.orElseGet(() -> versionCandidates.isEmpty() ? null : versionCandidates.get(0));
+            if (resolutionVersion != null && !resolutionVersion.isBlank()) {
+                List<Path> transitive = resolveToolingApiTransitiveDependencies(moduleRoot, resolutionVersion);
+                for (Path jar : transitive) {
+                    IClasspathEntry entry = BspWorkspaceModelResolver.toLibraryClasspathEntry(jar);
+                    if (entry != null) {
+                        merged.add(entry);
+                    }
+                }
+                logInfo("Gradle enrichment transitive dependencies for " + sourceSetId + " ("
+                    + resolutionVersion + "): " + transitive.size());
+            } else {
+                logInfo("Gradle enrichment skipped transitive resolution for " + sourceSetId
+                    + ": unable to detect tooling-api version.");
+            }
+        }
+
         for (String version : versionCandidates) {
-            String expectedCoreApi = "gradle-core-api-" + version + ".jar";
-            String expectedCore = "gradle-core-" + version + ".jar";
             if (!hasGradleApi) {
                 Path gradleApiJar = findGradleApiJar(version);
                 if (gradleApiJar != null) {
@@ -71,29 +90,7 @@ public final class GradleApiClasspathAugmenter {
                     logInfo("Added gradle-api from version " + version + ": " + gradleApiJar);
                 }
             }
-            for (Path wrapperJar : findWrapperGradleCoreJars(version)) {
-                String fileName = wrapperJar.getFileName() == null ? "" : wrapperJar.getFileName()
-                                                                                    .toString();
-                if ((expectedCoreApi.equals(fileName) && !hasGradleCoreApi)
-                    || (expectedCore.equals(fileName) && !hasGradleCore)) {
-                    merged.add(BspWorkspaceModelResolver.toLibraryClasspathEntry(wrapperJar));
-                    if (expectedCoreApi.equals(fileName)) {
-                        hasGradleCoreApi = true;
-                        logInfo("Added gradle-core-api from version " + version + ": " + wrapperJar);
-                    } else if (expectedCore.equals(fileName)) {
-                        hasGradleCore = true;
-                        logInfo("Added gradle-core from version " + version + ": " + wrapperJar);
-                    }
-                }
-            }
-            if (!hasGroovy) {
-                for (Path groovyJar : findWrapperGroovyJars(version)) {
-                    merged.add(BspWorkspaceModelResolver.toLibraryClasspathEntry(groovyJar));
-                    hasGroovy = true;
-                    logInfo("Added groovy runtime from version " + version + ": " + groovyJar);
-                }
-            }
-            if (hasGradleApi && hasGradleCoreApi && hasGradleCore && hasGroovy) {
+            if (hasGradleApi) {
                 break;
             }
         }
@@ -167,17 +164,32 @@ public final class GradleApiClasspathAugmenter {
     }
 
     private static Optional<String> detectGradleVersionFromClasspath(List<IClasspathEntry> classpath) {
+        if (classpath == null) {
+            return Optional.empty();
+        }
         for (IClasspathEntry entry : classpath) {
-            if (entry == null || entry.getEntryKind() != IClasspathEntry.CPE_LIBRARY || entry.getPath() == null) {
+            String fileName = toLibraryFileName(entry);
+            if (fileName == null) {
                 continue;
             }
-            Path libraryPath = Path.of(entry.getPath()
-                                            .toOSString());
-            if (libraryPath.getFileName() == null) {
+            Matcher matcher = GRADLE_VERSIONED_JAR.matcher(fileName);
+            if (matcher.find()) {
+                return Optional.of(matcher.group(1));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<String> detectToolingApiVersionFromClasspath(List<IClasspathEntry> classpath) {
+        if (classpath == null) {
+            return Optional.empty();
+        }
+        for (IClasspathEntry entry : classpath) {
+            String fileName = toLibraryFileName(entry);
+            if (fileName == null) {
                 continue;
             }
-            Matcher matcher = GRADLE_VERSIONED_JAR.matcher(libraryPath.getFileName()
-                                                                      .toString());
+            Matcher matcher = GRADLE_TOOLING_API_JAR.matcher(fileName);
             if (matcher.find()) {
                 return Optional.of(matcher.group(1));
             }
@@ -271,48 +283,147 @@ public final class GradleApiClasspathAugmenter {
         }
     }
 
-    private static List<Path> findWrapperGradleCoreJars(String gradleVersion) {
-        Path wrapperDists = Path.of(System.getProperty("user.home"), ".gradle", "wrapper", "dists");
-        if (!Files.isDirectory(wrapperDists)) {
+    private static List<Path> resolveToolingApiTransitiveDependencies(Path moduleRoot, String gradleVersion) {
+        if (gradleVersion == null || gradleVersion.isBlank()) {
             return Collections.emptyList();
         }
-        List<Path> jars = new ArrayList<>();
-        try (Stream<Path> walk = Files.walk(wrapperDists, 8)) {
-            walk.filter(Files::isRegularFile)
-                .filter(path -> {
-                    String name = path.getFileName()
-                                      .toString();
-                    return name.equals("gradle-core-api-" + gradleVersion + ".jar")
-                        || name.equals("gradle-core-" + gradleVersion + ".jar");
-                })
-                .forEach(jars::add);
-        } catch (Exception e) {
+        String key = (moduleRoot == null ? "" : moduleRoot.toAbsolutePath()
+                                                      .normalize()
+                                                      .toString()) + "#" + gradleVersion;
+        List<Path> cached = TOOLING_TRANSITIVE_CACHE.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        Path projectRoot = findNearestGradleProjectRoot(moduleRoot);
+        if (projectRoot == null) {
             return Collections.emptyList();
         }
-        return jars;
+        List<Path> resolved = resolveWithGradleCommand(projectRoot, gradleVersion);
+        TOOLING_TRANSITIVE_CACHE.put(key, resolved);
+        return resolved;
     }
 
-    private static List<Path> findWrapperGroovyJars(String gradleVersion) {
-        Path wrapperDists = Path.of(System.getProperty("user.home"), ".gradle", "wrapper", "dists");
-        if (!Files.isDirectory(wrapperDists)) {
-            return Collections.emptyList();
+    private static Path findNearestGradleProjectRoot(Path start) {
+        if (start == null) {
+            return null;
         }
-        List<Path> jars = new ArrayList<>();
-        String versionFolderToken = "gradle-" + gradleVersion;
-        try (Stream<Path> walk = Files.walk(wrapperDists, 8)) {
-            walk.filter(Files::isRegularFile)
-                .filter(path -> {
-                    String name = path.getFileName().toString();
-                    if (!name.startsWith("groovy-") || !name.endsWith(".jar")) {
-                        return false;
-                    }
-                    return path.toString().contains(versionFolderToken);
-                })
-                .forEach(jars::add);
+        Path current = start.toAbsolutePath()
+                            .normalize();
+        while (current != null) {
+            if (Files.isRegularFile(current.resolve("settings.gradle"))
+                || Files.isRegularFile(current.resolve("settings.gradle.kts"))
+                || Files.isRegularFile(current.resolve("build.gradle"))
+                || Files.isRegularFile(current.resolve("build.gradle.kts"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        return null;
+    }
+
+    private static List<Path> resolveWithGradleCommand(Path projectRoot, String gradleVersion) {
+        Path initScript = null;
+        try {
+            initScript = Files.createTempFile("bsp-gradle-tooling-api", ".gradle");
+            // The init script prints transitive jars and also triggers source artifact resolution.
+            Files.writeString(initScript, gradleInitScript(), StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING);
+
+            ProcessBuilder processBuilder = new ProcessBuilder(buildGradleCommand(projectRoot, initScript, gradleVersion));
+            processBuilder.directory(projectRoot.toFile());
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
+
+            List<Path> resolved = new ArrayList<>();
+            try (InputStream inputStream = process.getInputStream();
+					Stream<String> lines = new java.io.BufferedReader(
+                new java.io.InputStreamReader(inputStream)).lines()) {
+                lines.filter(line -> line != null && line.startsWith(DEPENDENCY_PREFIX))
+                     .map(line -> line.substring(DEPENDENCY_PREFIX.length()))
+                     .map(String::trim)
+                     .filter(path -> !path.isBlank())
+                     .map(Path::of)
+                     .filter(Files::isRegularFile)
+                     .forEach(resolved::add);
+            }
+
+            boolean finished = process.waitFor(120, TimeUnit.SECONDS);
+            if (!finished || process.exitValue() != 0) {
+                logInfo("Gradle transitive resolution failed for " + gradleVersion + " at " + projectRoot);
+                return Collections.emptyList();
+            }
+            return resolved;
         } catch (Exception e) {
+            logInfo("Gradle transitive resolution error for " + gradleVersion + ": " + e.getMessage());
             return Collections.emptyList();
+        } finally {
+            if (initScript != null) {
+                try {
+                    Files.deleteIfExists(initScript);
+                } catch (Exception ignored) {
+                    // Best effort only.
+                }
+            }
         }
-        return jars;
+    }
+
+    private static List<String> buildGradleCommand(Path projectRoot, Path initScript, String gradleVersion) {
+        boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT)
+                                    .contains("win");
+        Path wrapper = windows ? projectRoot.resolve("gradlew.bat") : projectRoot.resolve("gradlew");
+        if (windows) {
+            List<String> command = new ArrayList<>();
+            command.add("cmd.exe");
+            command.add("/c");
+            command.add(Files.isRegularFile(wrapper) ? wrapper.toString() : "gradle");
+            command.add("-q");
+            command.add("-I");
+            command.add(initScript.toString());
+            command.add("bspResolveToolingApi");
+            command.add("-PbspToolingApiVersion=" + gradleVersion);
+            return command;
+        }
+        List<String> command = new ArrayList<>();
+        command.add(Files.isRegularFile(wrapper) ? wrapper.toString() : "gradle");
+        command.add("-q");
+        command.add("-I");
+        command.add(initScript.toString());
+        command.add("bspResolveToolingApi");
+        command.add("-PbspToolingApiVersion=" + gradleVersion);
+        return command;
+    }
+
+    private static String gradleInitScript() {
+        return """
+allprojects {
+    tasks.register("bspResolveToolingApi") {
+        doLast {
+            def version = gradle.startParameter.projectProperties['bspToolingApiVersion']
+            if (!version) {
+                return
+            }
+            def tooling = dependencies.create("org.gradle:gradle-tooling-api:${version}")
+            def runtime = configurations.detachedConfiguration(tooling)
+            runtime.transitive = true
+            def binaries = runtime.resolve()
+            binaries.each { file ->
+                println("BSP_DEP=" + file.absolutePath)
+            }
+
+            def sourceDependencies = runtime.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
+                dependencies.create("${artifact.moduleVersion.id.group}:${artifact.name}:${artifact.moduleVersion.id.version}:sources")
+            }
+            if (!sourceDependencies.isEmpty()) {
+                def sourceConfig = configurations.detachedConfiguration(sourceDependencies as Dependency[])
+                sourceConfig.transitive = false
+                sourceConfig.incoming.artifactView { view ->
+                    view.lenient = true
+                }.files.files
+            }
+        }
+    }
+}
+""";
     }
 
     private static void logInfo(String message) {
