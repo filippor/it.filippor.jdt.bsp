@@ -119,13 +119,7 @@ public final class BspClientManager {
                     logInfo("BSP root project ensured for: " + rootLabel);
                     startClient(bspClient, config,
                         message -> logInfo("BSP[" + rootLabel + "] <- " + summarize(message)),
-                        line -> {
-                            logError("BSP[" + rootLabel + "] ! " + line, null);
-                            if (line != null && line.contains("BSP initialization failed")) {
-                                probe.failureMessage = line;
-                                probe.latch.countDown();
-                            }
-                        },
+                        line -> handleBspStderr(rootLabel, line, probe),
                         models -> {
                             probe.sourceSetsResolved = true;
                             logSourceSets(bspClient, rootLabel, commandLineForRoot, models);
@@ -234,6 +228,33 @@ public final class BspClientManager {
             return compact.substring(0, 200) + "...";
         }
         return compact;
+    }
+
+    private static void handleBspStderr(String rootLabel, String line, RootStartProbe probe) {
+        if (line == null || line.isBlank()) {
+            return;
+        }
+        if (line.contains("BSP initialization failed")) {
+            probe.failureMessage = line;
+            probe.latch.countDown();
+            logError("BSP[" + rootLabel + "] ! " + line, null);
+            return;
+        }
+        if (isNoisyBspStderr(line)) {
+            if (isDebugEnabled()) {
+                logInfo("BSP[" + rootLabel + "] ! " + line);
+            }
+            return;
+        }
+        logError("BSP[" + rootLabel + "] ! " + line, null);
+    }
+
+    private static boolean isNoisyBspStderr(String line) {
+        String normalized = line == null ? "" : line;
+        return normalized.startsWith("SLF4J(W):")
+            || normalized.contains("org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint request")
+            || normalized.contains("Unsupported request method: buildTarget/jvmCompileClasspath")
+            || normalized.contains("Unsupported request method: buildTarget/compileClasspath");
     }
 
     private void logSourceSets(BspProcessClient bspClient, String rootLabel, String commandLine,

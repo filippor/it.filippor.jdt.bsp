@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -48,6 +49,7 @@ public class GradleApiFallbackClasspathEnricher implements BspClasspathEnricher 
     private static final String DEPENDENCY_PREFIX = "BSP_DEP=";
     private static final String SOURCE_PREFIX = "BSP_SRC=";
     private static final java.util.Map<String, List<Path>> TOOLING_TRANSITIVE_CACHE = new ConcurrentHashMap<>();
+    private static final Set<String> LOGGED_FAILURES = ConcurrentHashMap.newKeySet();
 
     @Override
     public List<IClasspathEntry> enrich(String sourceSetId, List<IClasspathEntry> classpath) {
@@ -468,7 +470,7 @@ public class GradleApiFallbackClasspathEnricher implements BspClasspathEnricher 
                 String reason = !finished
                     ? "command timed out after 120s"
                     : "command exited with code " + process.exitValue();
-                logError("Gradle transitive classpath fallback failed for version " + gradleVersion
+                logFallbackFailureOnce(projectRoot, gradleVersion, reason, "Gradle transitive classpath fallback failed for version " + gradleVersion
                     + " at " + projectRoot + ": " + reason
                     + ". Ensure Gradle wrapper is present or 'gradle' is available on PATH and points to a JDK installation.",
                     null);
@@ -477,10 +479,13 @@ public class GradleApiFallbackClasspathEnricher implements BspClasspathEnricher 
             return new ArrayList<>(resolved);
         } catch (Exception e) {
             String detail = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-            logError("Gradle transitive classpath fallback failed for version " + gradleVersion
+            boolean gradleMissing = detail.contains("Cannot run program \"gradle\"") || detail.contains("error=2");
+            logFallbackFailureOnce(projectRoot, gradleVersion,
+                gradleMissing ? "missing-gradle" : detail,
+                "Gradle transitive classpath fallback failed for version " + gradleVersion
                 + " at " + projectRoot + ": " + detail
                 + ". Ensure Gradle wrapper is present or 'gradle' is available on PATH and points to a JDK installation.",
-                e);
+                gradleMissing ? null : e);
             return Collections.emptyList();
         } finally {
             if (initScript != null) {
@@ -549,6 +554,15 @@ allprojects {
         Bundle bundle = FrameworkUtil.getBundle(GradleApiFallbackClasspathEnricher.class);
         if (bundle != null) {
             Platform.getLog(bundle).log(new Status(IStatus.ERROR, UI_PLUGIN_ID, message, throwable));
+        }
+    }
+
+    private static void logFallbackFailureOnce(Path projectRoot, String gradleVersion, String reasonKey,
+                                               String message, Throwable throwable) {
+        String rootKey = projectRoot == null ? "" : projectRoot.toAbsolutePath().normalize().toString();
+        String key = rootKey + "#" + gradleVersion + "#" + reasonKey;
+        if (LOGGED_FAILURES.add(key)) {
+            logError(message, throwable);
         }
     }
 }
